@@ -1,0 +1,92 @@
+# ═══════════════════════════════════════════════════════════
+#  CyberGeek 宇宙博客 — 开发环境 Docker Compose
+# ═══════════════════════════════════════════════════════════
+#
+#  启动: docker compose -f docker-compose.dev.yml up -d
+#  停止: docker compose -f docker-compose.dev.yml down
+#  清除数据: docker compose -f docker-compose.dev.yml down -v
+#
+#  注意：前端 (Next.js) 和后端 (Go/Gin) 在主机直接运行，
+#        此文件仅提供数据库和缓存等基础设施服务。
+
+version: "3.8"
+
+services:
+  # ─────────────── PostgreSQL 16 + pgvector ───────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cybergeek-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cybergeek}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-cybergeek}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cybergeek}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - cosmic-network
+
+  # ─────────────── Redis Stack 7.2 ───────────────
+  # 包含 Bloom Filter (RedisBloom) + JSON (RedisJSON) 模块
+  redis:
+    image: redis/redis-stack:7.2.0-v13
+    container_name: cybergeek-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"   # Redis 服务端口
+      - "8001:8001"   # RedisInsight Web UI
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - cosmic-network
+
+  # ─────────────── Meilisearch（可选） ───────────────
+  # 用于后续全文搜索升级，默认注释掉
+  # 取消注释以启用
+  #
+  # meilisearch:
+  #   image: getmeili/meilisearch:v1.11
+  #   container_name: cybergeek-meilisearch
+  #   restart: unless-stopped
+  #   ports:
+  #     - "7700:7700"
+  #   environment:
+  #     MEILI_ENV: development
+  #     MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-cybergeek-dev-key}
+  #     MEILI_NO_ANALYTICS: "true"
+  #   volumes:
+  #     - meilidata:/meili_data
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 15s
+  #   networks:
+  #     - cosmic-network
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  # meilidata:
+  #   driver: local
+
+networks:
+  cosmic-network:
+    driver: bridge

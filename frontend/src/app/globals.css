@@ -1,0 +1,373 @@
+@import 'tailwindcss';
+@import '../styles/cosmic-theme.css';
+@plugin "@tailwindcss/typography";
+
+/* ═══════════════════════════════════════════════════════════
+ * Tailwind v4 CSS-first theme configuration
+ * Migrated from docs/预备文件/config/tailwind.config.ts
+ * ═══════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── Color palette ── */
+  --color-cosmic-void: #0a0a1a;
+  --color-cosmic-void-50: #e8e8f0;
+  --color-cosmic-void-100: #c5c5d6;
+  --color-cosmic-void-200: #9e9ebc;
+  --color-cosmic-void-300: #7474a0;
+  --color-cosmic-void-400: #50508a;
+  --color-cosmic-void-500: #2d2d6e;
+  --color-cosmic-void-600: #1a1a40;
+  --color-cosmic-void-700: #12122e;
+  --color-cosmic-void-800: #0b0d17;
+  --color-cosmic-void-900: #070710;
+  --color-cosmic-void-950: #05050f;
+
+  --color-cosmic-nebula: #7c3aed;
+  --color-cosmic-nebula-50: #f3eeff;
+  --color-cosmic-nebula-100: #e9dfff;
+  --color-cosmic-nebula-200: #d5c0ff;
+  --color-cosmic-nebula-300: #b794ff;
+  --color-cosmic-nebula-400: #9f66ff;
+  --color-cosmic-nebula-500: #7c3aed;
+  --color-cosmic-nebula-600: #6922d4;
+  --color-cosmic-nebula-700: #5618b0;
+  --color-cosmic-nebula-800: #471490;
+  --color-cosmic-nebula-900: #3a1175;
+  --color-cosmic-nebula-950: #22094a;
+
+  --color-cosmic-glow: #06b6d4;
+  --color-cosmic-glow-50: #ecfeff;
+  --color-cosmic-glow-100: #cffafe;
+  --color-cosmic-glow-200: #a5f3fc;
+  --color-cosmic-glow-300: #67e8f9;
+  --color-cosmic-glow-400: #22d3ee;
+  --color-cosmic-glow-500: #06b6d4;
+  --color-cosmic-glow-600: #0891b2;
+  --color-cosmic-glow-700: #0e7490;
+  --color-cosmic-glow-800: #155e75;
+  --color-cosmic-glow-900: #164e63;
+  --color-cosmic-glow-950: #083344;
+
+  --color-cosmic-plasma: #d946ef;
+  --color-cosmic-plasma-50: #fdf4ff;
+  --color-cosmic-plasma-100: #fae8ff;
+  --color-cosmic-plasma-200: #f5d0fe;
+  --color-cosmic-plasma-300: #f0abfc;
+  --color-cosmic-plasma-400: #e879f9;
+  --color-cosmic-plasma-500: #d946ef;
+  --color-cosmic-plasma-600: #c026d3;
+  --color-cosmic-plasma-700: #a21caf;
+  --color-cosmic-plasma-800: #86198f;
+  --color-cosmic-plasma-900: #701a75;
+  --color-cosmic-plasma-950: #4a044e;
+
+  --color-cosmic-frost: #e2e8f0;
+  --color-cosmic-frost-50: #f8fafc;
+  --color-cosmic-frost-100: #f1f5f9;
+  --color-cosmic-frost-200: #e2e8f0;
+  --color-cosmic-frost-300: #cbd5e1;
+  --color-cosmic-frost-400: #94a3b8;
+  --color-cosmic-frost-500: #64748b;
+  --color-cosmic-frost-600: #475569;
+  --color-cosmic-frost-700: #334155;
+  --color-cosmic-frost-800: #1e293b;
+  --color-cosmic-frost-900: #0f172a;
+  --color-cosmic-frost-950: #020617;
+
+  --color-cosmic-amber: #f59e0b;
+  --color-cosmic-amber-50: #fffbeb;
+  --color-cosmic-amber-100: #fef3c7;
+  --color-cosmic-amber-200: #fde68a;
+  --color-cosmic-amber-300: #fcd34d;
+  --color-cosmic-amber-400: #fbbf24;
+  --color-cosmic-amber-500: #f59e0b;
+  --color-cosmic-amber-600: #d97706;
+  --color-cosmic-amber-700: #b45309;
+  --color-cosmic-amber-800: #92400e;
+  --color-cosmic-amber-900: #78350f;
+  --color-cosmic-amber-950: #451a03;
+
+  --color-cosmic-crt: #00d4ff;
+
+  --color-cosmic-danger: #ef4444;
+  --color-cosmic-danger-50: #fef2f2;
+  --color-cosmic-danger-100: #fee2e2;
+  --color-cosmic-danger-200: #fecaca;
+  --color-cosmic-danger-300: #fca5a5;
+  --color-cosmic-danger-400: #f87171;
+  --color-cosmic-danger-500: #ef4444;
+  --color-cosmic-danger-600: #dc2626;
+  --color-cosmic-danger-700: #b91c1c;
+  --color-cosmic-danger-800: #991b1b;
+  --color-cosmic-danger-900: #7f1d1d;
+  --color-cosmic-danger-950: #450a0a;
+
+  /* One Dark Pro code theme */
+  --color-onedark-bg: #282c34;
+  --color-onedark-fg: #abb2bf;
+  --color-onedark-red: #e06c75;
+  --color-onedark-green: #98c379;
+  --color-onedark-yellow: #e5c07b;
+  --color-onedark-blue: #61afef;
+  --color-onedark-magenta: #c678dd;
+  --color-onedark-cyan: #56b6c2;
+  --color-onedark-gutter: #4b5263;
+  --color-onedark-comment: #5c6370;
+  --color-onedark-selection: #3e4451;
+
+  /* ── Font families ── */
+  --font-wenkai: 'LXGW WenKai', 'LXGW WenKai Screen', serif;
+  --font-inter: Inter, system-ui, sans-serif;
+  --font-body: Inter, 'LXGW WenKai', 'LXGW WenKai Screen', system-ui, sans-serif;
+  --font-heading: 'Space Grotesk', Inter, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
+
+  /* ── Background images ── */
+  --background-image-deep-space: radial-gradient(
+    ellipse at 20% 50%,
+    #0b0d17 0%,
+    #05050f 60%,
+    #000000 100%
+  );
+  --background-image-nebula-glow: radial-gradient(
+    ellipse at 70% 30%,
+    rgba(124, 58, 237, 0.15) 0%,
+    transparent 60%
+  );
+  --background-image-crt-gradient: linear-gradient(
+    180deg,
+    rgba(0, 212, 255, 0.08) 0%,
+    transparent 40%,
+    transparent 60%,
+    rgba(0, 212, 255, 0.04) 100%
+  );
+
+  /* ── Backdrop blur ── */
+  --backdrop-blur-xs: 2px;
+  --backdrop-blur-hud: 12px;
+  --backdrop-blur-hud-heavy: 20px;
+
+  /* ── Border radius ── */
+  --radius-hud: 6px;
+
+  /* ── Box shadows ── */
+  --shadow-glow-blue: 0 0 15px rgba(6, 182, 212, 0.35), 0 0 40px rgba(6, 182, 212, 0.15);
+  --shadow-glow-purple: 0 0 15px rgba(124, 58, 237, 0.35), 0 0 40px rgba(124, 58, 237, 0.15);
+  --shadow-glow-plasma: 0 0 15px rgba(217, 70, 239, 0.35), 0 0 40px rgba(217, 70, 239, 0.15);
+  --shadow-glow-crt: 0 0 10px rgba(0, 212, 255, 0.4), 0 0 30px rgba(0, 212, 255, 0.15);
+  --shadow-glow-amber: 0 0 15px rgba(245, 158, 11, 0.35), 0 0 40px rgba(245, 158, 11, 0.15);
+  --shadow-glow-danger: 0 0 15px rgba(239, 68, 68, 0.35), 0 0 40px rgba(239, 68, 68, 0.15);
+  --shadow-inner-glow-blue: inset 0 0 20px rgba(6, 182, 212, 0.15);
+  --shadow-inner-glow-purple: inset 0 0 20px rgba(124, 58, 237, 0.15);
+
+  /* ── Animations ── */
+  --animate-pulse-glow: pulse_glow 2s ease-in-out infinite;
+  --animate-scanline: scanline 8s linear infinite;
+  --animate-particle-converge: particle_converge 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  --animate-twinkle: twinkle 3s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-typing: typing 2s steps(30) forwards;
+  --animate-blink-caret: blink_caret 0.75s step-end infinite;
+  --animate-glitch: glitch 0.3s ease-in-out infinite;
+}
+
+/* ── Keyframes ── */
+@keyframes pulse_glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes particle_converge {
+  0% {
+    transform: translate(var(--px), var(--py)) scale(0);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink_caret {
+  0%,
+  100% {
+    border-color: transparent;
+  }
+  50% {
+    border-color: #00d4ff;
+  }
+}
+
+@keyframes glitch {
+  0%,
+  100% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+}
+
+/* ── Component: HUD panel (from tailwind plugin) ── */
+@layer components {
+  .hud-panel {
+    background: rgba(10, 10, 26, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    border-radius: var(--radius-hud);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .hud-panel-purple {
+    background: rgba(10, 10, 26, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    border-radius: var(--radius-hud);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* ── Utilities: text glow ── */
+@utility text-glow {
+  text-shadow:
+    0 0 8px rgba(6, 182, 212, 0.6),
+    0 0 20px rgba(6, 182, 212, 0.3);
+}
+
+@utility text-glow-purple {
+  text-shadow:
+    0 0 8px rgba(124, 58, 237, 0.6),
+    0 0 20px rgba(124, 58, 237, 0.3);
+}
+
+@utility text-glow-plasma {
+  text-shadow:
+    0 0 8px rgba(217, 70, 239, 0.6),
+    0 0 20px rgba(217, 70, 239, 0.3);
+}
+
+@utility text-glow-crt {
+  text-shadow:
+    0 0 8px rgba(0, 212, 255, 0.7),
+    0 0 20px rgba(0, 212, 255, 0.4);
+}
+
+@utility text-glow-amber {
+  text-shadow:
+    0 0 8px rgba(245, 158, 11, 0.6),
+    0 0 20px rgba(245, 158, 11, 0.3);
+}
+
+@utility text-glow-danger {
+  text-shadow:
+    0 0 8px rgba(239, 68, 68, 0.6),
+    0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+/* ── Utilities: scanline ── */
+@utility scanline {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 212, 255, 0.03) 2px,
+      rgba(0, 212, 255, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+}
+
+/* ── Utilities: dotted glow border ── */
+@utility border-dotted-glow {
+  border-style: dotted;
+  border-width: 1px;
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.15);
+}
+
+@utility border-dotted-glow-purple {
+  border-style: dotted;
+  border-width: 1px;
+  border-color: rgba(124, 58, 237, 0.4);
+  box-shadow: 0 0 6px rgba(124, 58, 237, 0.15);
+}
+
+/* ── Base styles ── */
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--color-cosmic-frost);
+    background-color: var(--color-cosmic-void);
+  }
+}
