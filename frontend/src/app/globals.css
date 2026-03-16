@@ -361,6 +361,12 @@
 
 /* ── Base styles ── */
 @layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+  }
+
   html {
     color-scheme: dark;
   }
