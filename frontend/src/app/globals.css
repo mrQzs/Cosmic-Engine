@@ -359,6 +359,58 @@
   box-shadow: 0 0 6px rgba(124, 58, 237, 0.15);
 }
 
+/* ── Typography: prose-cosmic variant ── */
+@layer components {
+  .prose-cosmic {
+    --tw-prose-body: #e2e8f0;
+    --tw-prose-headings: #f8fafc;
+    --tw-prose-lead: #94a3b8;
+    --tw-prose-links: #06b6d4;
+    --tw-prose-bold: #f8fafc;
+    --tw-prose-counters: #64748b;
+    --tw-prose-bullets: #06b6d4;
+    --tw-prose-hr: #1e293b;
+    --tw-prose-quotes: #e2e8f0;
+    --tw-prose-quote-borders: #7c3aed;
+    --tw-prose-captions: #64748b;
+    --tw-prose-code: #00d4ff;
+    --tw-prose-pre-code: #abb2bf;
+    --tw-prose-pre-bg: #282c34;
+    --tw-prose-th-borders: #334155;
+    --tw-prose-td-borders: #1e293b;
+  }
+
+  .prose-cosmic :where(code):not(:where([class~='not-prose'], [class~='not-prose'] *))::before,
+  .prose-cosmic :where(code):not(:where([class~='not-prose'], [class~='not-prose'] *))::after {
+    content: '';
+  }
+
+  .prose-cosmic :where(a):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    text-decoration: none;
+    border-bottom: 1px solid rgba(6, 182, 212, 0.3);
+    transition:
+      border-color 0.2s,
+      color 0.2s;
+  }
+
+  .prose-cosmic :where(a):not(:where([class~='not-prose'], [class~='not-prose'] *)):hover {
+    border-bottom-color: #06b6d4;
+    color: #22d3ee;
+  }
+
+  .prose-cosmic :where(blockquote):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    border-left-color: #7c3aed;
+    background-color: rgba(124, 58, 237, 0.06);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75em 1em;
+  }
+
+  .prose-cosmic :where(pre):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    border-radius: 6px;
+    border: 1px solid #3e4451;
+  }
+}
+
 /* ── Base styles ── */
 @layer base {
   html,
