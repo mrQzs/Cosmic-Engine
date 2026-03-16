@@ -1,0 +1,807 @@
+# =============================================================================
+# CyberGeek Blog - GraphQL Schema
+# 宇宙主题博客 API，所有天体隐喻映射到博客实体
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Custom Scalars
+# -----------------------------------------------------------------------------
+
+"""ISO 8601 日期时间字符串"""
+scalar DateTime
+
+"""任意 JSON 值，用于站点配置等动态数据"""
+scalar JSON
+
+"""文件上传（multipart request）"""
+scalar Upload
+
+"""Base64 编码的二进制数据"""
+scalar Base64
+
+# -----------------------------------------------------------------------------
+# Directives
+# -----------------------------------------------------------------------------
+
+"""标记需要管理员认证的操作"""
+directive @auth on FIELD_DEFINITION
+
+# -----------------------------------------------------------------------------
+# Interfaces
+# -----------------------------------------------------------------------------
+
+"""所有天体共享的基础字段"""
+interface CelestialEntity {
+  id: ID!
+  title: String!
+  slug: String!
+  excerpt: String
+  coverUrl: String
+  galaxy: Galaxy
+  physicsParams: PhysicsParams
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# -----------------------------------------------------------------------------
+# Union: 天体联合类型
+# -----------------------------------------------------------------------------
+
+"""星系中可包含的天体类型（BlackHole 已移除——黑洞现为星系中心视觉元素，非独立天体）"""
+union CelestialBody = Planet | Asteroid | Pulsar
+
+# -----------------------------------------------------------------------------
+# Core Types
+# -----------------------------------------------------------------------------
+
+"""
+星系/恒星 —— 对应博客主分类/子分类。
+parent=null: 星系（主分类），中心有超大质量黑洞作为引力锚点和视觉标识。
+parent!=null: 恒星（子分类），围绕父星系中心黑洞公转。
+恒星生命周期：articleCount<10 原恒星盘(暗淡) → ≥10 主序星(明亮) → ≥50 巨星 → ≥100 红巨星。
+"""
+type Galaxy {
+  id: ID!
+  name: String!
+  slug: String!
+  description: String
+  """星系在宇宙中的三维位置（星系=绝对坐标，恒星=相对父星系的轨道参数）"""
+  position: BaseCoordinates!
+  """配色方案"""
+  colorScheme: GalaxyColorScheme!
+  """父级星系（null=顶级星系/主分类，非null=恒星/子分类）"""
+  parent: Galaxy
+  """子恒星列表（仅主分类有子项）"""
+  children: [Galaxy!]!
+  """星系/恒星内所有天体"""
+  bodies: [CelestialBody!]!
+  """文章总数（决定恒星生命周期阶段）"""
+  articleCount: Int!
+  """恒星生命周期阶段（仅子分类有效）"""
+  starPhase: StarPhase
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""恒星生命周期阶段"""
+enum StarPhase {
+  """原恒星盘：文章数<10，暗淡的旋转气体云团"""
+  PROTOSTAR
+  """主序星：文章数≥10，明亮的自发光球体"""
+  MAIN_SEQUENCE
+  """巨星：文章数≥50，膨胀偏橙"""
+  GIANT
+  """红巨星：文章数≥100，深红色巨大恒星"""
+  RED_GIANT
+}
+
+"""星系配色"""
+type GalaxyColorScheme {
+  primary: String!
+  secondary: String!
+  nebula: String
+}
+
+"""
+行星 —— 对应已发布文章。
+包含完整内容、评论、标签及视觉参数。
+"""
+type Planet implements CelestialEntity {
+  id: ID!
+  title: String!
+  slug: String!
+  excerpt: String
+  coverUrl: String
+  galaxy: Galaxy
+  physicsParams: PhysicsParams
+  createdAt: DateTime!
+  updatedAt: DateTime!
+
+  """Markdown 正文内容（仅在单篇查询时返回）"""
+  content: String!
+  """阅读时长估算（分钟）"""
+  readingTime: Int!
+  """是否置顶"""
+  pinned: Boolean!
+  """发布时间"""
+  publishedAt: DateTime
+  """文章标签"""
+  tags: [Tag!]!
+  """评论列表"""
+  comments: [Comment!]!
+  """相关文章"""
+  relatedPlanets: [Planet!]!
+  """视觉美学参数"""
+  aestheticsParams: AestheticsParams!
+  """浏览量"""
+  viewCount: Int!
+  """评论数量"""
+  commentCount: Int!
+  """所属恒星（子分类），null 表示未归类"""
+  star: Galaxy
+}
+
+"""
+小行星 —— 对应草稿文章。
+简化版行星，不含评论和关联。
+"""
+type Asteroid implements CelestialEntity {
+  id: ID!
+  title: String!
+  slug: String!
+  excerpt: String
+  coverUrl: String
+  galaxy: Galaxy
+  physicsParams: PhysicsParams
+  createdAt: DateTime!
+  updatedAt: DateTime!
+
+  """Markdown 草稿内容"""
+  content: String!
+  """标签"""
+  tags: [Tag!]!
+}
+
+"""
+脉冲星 —— 对应博主个人简介页。
+包含技能、时间线及社交链接等。
+"""
+type Pulsar implements CelestialEntity {
+  id: ID!
+  title: String!
+  slug: String!
+  excerpt: String
+  coverUrl: String
+  galaxy: Galaxy
+  physicsParams: PhysicsParams
+  createdAt: DateTime!
+  updatedAt: DateTime!
+
+  """个人简介（Markdown）"""
+  bio: String!
+  """技能列表"""
+  skills: [Skill!]!
+  """时间线事件"""
+  timeline: [TimelineEvent!]!
+  """社交链接"""
+  socialLinks: [SocialLink!]!
+  """统计数据"""
+  stats: ProfileStats!
+}
+
+"""技能条目"""
+type Skill {
+  name: String!
+  level: Int!
+  category: String!
+  icon: String
+}
+
+"""时间线事件"""
+type TimelineEvent {
+  date: DateTime!
+  title: String!
+  description: String
+  icon: String
+}
+
+"""社交链接"""
+type SocialLink {
+  platform: String!
+  url: String!
+  icon: String
+}
+
+"""个人主页统计"""
+type ProfileStats {
+  totalPosts: Int!
+  totalWords: Int!
+  totalComments: Int!
+  runningDays: Int!
+}
+
+## BlackHole 类型已移除
+## 黑洞不再是独立天体，而是每个星系中心的超大质量黑洞（纯视觉元素 + 分类概览入口）
+## 视觉参数通过 Galaxy.colorScheme 和 Galaxy.articleCount 驱动
+
+"""
+评论 —— 围绕天体运行的卫星。
+支持嵌套回复和表情反应。
+"""
+type Comment {
+  id: ID!
+  """评论所属天体的 slug"""
+  bodySlug: String!
+  """评论者昵称"""
+  authorName: String!
+  """评论者邮箱（仅管理员可见完整值）"""
+  authorEmail: String
+  """评论者主页 URL"""
+  authorUrl: String
+  """头像种子（用于生成确定性随机头像）"""
+  avatarSeed: String!
+  """渲染后的 HTML 内容"""
+  contentHtml: String!
+  """评论轨道参数（用于 3D 可视化）"""
+  orbitalParams: OrbitalParams!
+  """父评论 ID（为 null 表示顶级评论）"""
+  parentId: ID
+  """嵌套回复"""
+  replies: [Comment!]!
+  """表情反应列表"""
+  reactions: [Reaction!]!
+  """是否置顶"""
+  pinned: Boolean!
+  createdAt: DateTime!
+}
+
+"""标签"""
+type Tag {
+  id: ID!
+  name: String!
+  slug: String!
+  """标签显示颜色（HEX）"""
+  color: String!
+  """使用该标签的文章数量"""
+  postCount: Int!
+}
+
+"""管理员用户"""
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  displayName: String!
+  avatarUrl: String
+  role: UserRole!
+  lastLoginAt: DateTime
+  createdAt: DateTime!
+}
+
+enum UserRole {
+  ADMIN
+  EDITOR
+}
+
+"""上传的媒体文件"""
+type Upload {
+  id: ID!
+  filename: String!
+  url: String!
+  mimeType: String!
+  size: Int!
+  width: Int
+  height: Int
+  createdAt: DateTime!
+}
+
+"""表情反应"""
+type Reaction {
+  id: ID!
+  """反应目标 ID（可以是评论或天体）"""
+  targetId: ID!
+  """表情符号"""
+  emoji: String!
+  """同一表情的数量"""
+  count: Int!
+}
+
+"""友情链接"""
+type FriendLink {
+  id: ID!
+  name: String!
+  url: String!
+  description: String
+  avatarUrl: String
+  """友链分组"""
+  group: String
+  sortOrder: Int!
+  createdAt: DateTime!
+}
+
+"""站点键值配置"""
+type SiteSetting {
+  key: String!
+  value: JSON!
+  updatedAt: DateTime!
+}
+
+# -----------------------------------------------------------------------------
+# Physics / Aesthetics Parameter Types
+# -----------------------------------------------------------------------------
+
+"""天体物理轨道参数（用于宇宙场景渲染）"""
+type PhysicsParams {
+  """质量（影响引力和视觉大小）"""
+  mass: Float!
+  """轨道半径"""
+  orbitRadius: Float!
+  """离心率 [0, 1)"""
+  eccentricity: Float!
+  """轨道倾角（弧度）"""
+  orbitInclination: Float!
+  """初始相位偏移（弧度）"""
+  phaseOffset: Float!
+  """公转速度"""
+  orbitalSpeed: Float!
+  """纹理随机种子"""
+  textureSeed: Int!
+}
+
+"""行星视觉美学参数"""
+type AestheticsParams {
+  """星球类型（terrestrial, gas_giant, ice_giant, dwarf 等）"""
+  planetType: String!
+  """基础颜色 HSL"""
+  baseColorHSL: HSLColor!
+  """大气层颜色（HEX）"""
+  atmosphereColor: String
+  """表面粗糙度 [0, 1]"""
+  surfaceRoughness: Float!
+  """是否有光环"""
+  hasRing: Boolean!
+  """发光强度 [0, 1]"""
+  glowIntensity: Float!
+  """噪声类型（perlin, simplex, voronoi, fbm）"""
+  noiseType: String!
+}
+
+"""HSL 颜色值"""
+type HSLColor {
+  h: Float!
+  s: Float!
+  l: Float!
+}
+
+"""评论卫星的轨道参数（用于 3D 评论环可视化）"""
+type OrbitalParams {
+  """所在环索引"""
+  ringIndex: Int!
+  """轨道半径"""
+  orbitRadius: Float!
+  """轨道倾角（弧度）"""
+  orbitInclination: Float!
+  """初始相位偏移（弧度）"""
+  phaseOffset: Float!
+  """离心率"""
+  eccentricity: Float!
+  """公转速度"""
+  orbitalSpeed: Float!
+}
+
+"""三维坐标"""
+type BaseCoordinates {
+  x: Float!
+  y: Float!
+  z: Float!
+}
+
+# -----------------------------------------------------------------------------
+# Pagination & Aggregation Types
+# -----------------------------------------------------------------------------
+
+"""宇宙全景数据（首屏加载用）"""
+type Universe {
+  """所有星系及其天体的位置坐标（不含 content）"""
+  galaxies: [Galaxy!]!
+  """站点统计概览"""
+  stats: SiteStats!
+}
+
+"""站点统计"""
+type SiteStats {
+  totalPlanets: Int!
+  totalComments: Int!
+  totalGalaxies: Int!
+  totalTags: Int!
+  totalViews: Int!
+  runningDays: Int!
+}
+
+"""搜索结果"""
+type SearchResult {
+  items: [CelestialBody!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+  hasMore: Boolean!
+}
+
+"""年度归档"""
+type ArchiveResult {
+  year: Int!
+  months: [ArchiveMonth!]!
+  total: Int!
+}
+
+"""月度归档"""
+type ArchiveMonth {
+  month: Int!
+  planets: [Planet!]!
+  count: Int!
+}
+
+"""评论游标分页连接"""
+type CommentConnection {
+  edges: [CommentEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+"""评论游标分页边"""
+type CommentEdge {
+  cursor: String!
+  node: Comment!
+}
+
+"""分页信息"""
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+"""关联度评分（用于相关文章推荐）"""
+type RelationScore {
+  planet: Planet!
+  score: Float!
+}
+
+"""认证响应"""
+type AuthPayload {
+  token: String!
+  expiresAt: DateTime!
+  user: User!
+}
+
+"""PoW 挑战（反垃圾评论）"""
+type PowChallenge {
+  """挑战 ID"""
+  challengeId: String!
+  """需要找到满足条件的 nonce 的前缀"""
+  prefix: String!
+  """要求的前导零位数"""
+  difficulty: Int!
+  """挑战过期时间"""
+  expiresAt: DateTime!
+}
+
+# -----------------------------------------------------------------------------
+# Queries
+# -----------------------------------------------------------------------------
+
+type Query {
+  """
+  宇宙全景：返回所有星系及天体的位置坐标。
+  [拉取策略] 首屏加载，不含 content 字段，仅坐标和元信息。
+  """
+  universe: Universe!
+
+  """
+  获取单个星系详情，含其天体列表。
+  [拉取策略] 按需加载，天体不含 content。
+  """
+  galaxy(slug: String!): Galaxy
+
+  """
+  获取单篇文章详情。
+  [拉取策略] 完整加载，含 content、comments、relatedPlanets。
+  """
+  planet(slug: String!): Planet
+
+  """
+  全文搜索天体。
+  [拉取策略] 分页返回，不含 content，仅摘要和元信息。
+  """
+  searchBodies(query: String!, galaxySlug: String, page: Int, pageSize: Int): SearchResult!
+
+  """按年份归档"""
+  archiveByYear(year: Int!): ArchiveResult!
+
+  """获取博主个人简介"""
+  profile: Pulsar
+
+  """
+  获取评论列表（游标分页）。
+  [拉取策略] 按需加载，支持游标翻页和限制条数。
+  """
+  comments(bodySlug: String!, cursor: String, limit: Int): CommentConnection!
+
+  """获取相关文章推荐"""
+  relatedPlanets(bodyId: ID!, limit: Int): [RelationScore!]!
+
+  """获取热门文章"""
+  popularPlanets(limit: Int): [Planet!]!
+
+  """获取所有标签"""
+  tags: [Tag!]!
+
+  """获取站点统计"""
+  stats: SiteStats!
+
+  """获取 RSS Feed URL"""
+  feedUrl: String!
+
+  """获取友情链接列表"""
+  friendLinks: [FriendLink!]!
+
+  """获取站点配置（管理员）"""
+  siteSettings: [SiteSetting!]! @auth
+}
+
+# -----------------------------------------------------------------------------
+# Mutations
+# -----------------------------------------------------------------------------
+
+type Mutation {
+  # ── 文章管理 ──
+
+  """创建新文章（草稿状态）"""
+  createPlanet(input: CreatePlanetInput!): Planet! @auth
+
+  """更新文章"""
+  updatePlanet(slug: String!, input: UpdatePlanetInput!): Planet! @auth
+
+  """删除文章"""
+  deletePlanet(slug: String!): Boolean! @auth
+
+  """发布草稿为正式文章"""
+  publishPlanet(slug: String!): Planet! @auth
+
+  # ── 评论 ──
+
+  """
+  创建评论。
+  需携带 PoW nonce 以通过反垃圾验证。
+  """
+  createComment(input: CreateCommentInput!): Comment!
+
+  """删除评论"""
+  deleteComment(id: ID!): Boolean! @auth
+
+  """置顶/取消置顶评论"""
+  pinComment(id: ID!, pinned: Boolean!): Comment! @auth
+
+  # ── 表情反应 ──
+
+  """添加表情反应"""
+  addReaction(input: AddReactionInput!): Reaction!
+
+  # ── 认证 ──
+
+  """管理员登录（支持可选 TOTP 二步验证）"""
+  login(email: String!, password: String!, totpCode: String): AuthPayload!
+
+  # ── 文件上传 ──
+
+  """上传媒体文件"""
+  uploadFile(file: Upload!): Upload! @auth
+
+  # ── 个人简介 ──
+
+  """更新博主简介"""
+  updateProfile(input: UpdateProfileInput!): Pulsar! @auth
+
+  # ── 星系管理 ──
+
+  """创建星系（分类）"""
+  createGalaxy(input: CreateGalaxyInput!): Galaxy! @auth
+
+  """更新星系"""
+  updateGalaxy(id: ID!, input: UpdateGalaxyInput!): Galaxy! @auth
+
+  # ── 站点配置 ──
+
+  """更新站点配置"""
+  updateSiteSetting(key: String!, value: JSON!): SiteSetting! @auth
+
+  # ── PoW ──
+
+  """请求 PoW 挑战（评论前调用）"""
+  requestPowChallenge: PowChallenge!
+
+  # ── 友链管理 ──
+
+  """创建友情链接"""
+  createFriendLink(input: CreateFriendLinkInput!): FriendLink! @auth
+
+  """更新友情链接"""
+  updateFriendLink(id: ID!, input: UpdateFriendLinkInput!): FriendLink! @auth
+
+  """删除友情链接"""
+  deleteFriendLink(id: ID!): Boolean! @auth
+}
+
+# -----------------------------------------------------------------------------
+# Subscriptions
+# -----------------------------------------------------------------------------
+
+type Subscription {
+  """监听某天体下的新评论"""
+  commentAdded(bodySlug: String!): Comment!
+
+  """监听某目标的新表情反应"""
+  reactionAdded(targetId: ID!): Reaction!
+
+  """
+  监听在线人数。
+  bodySlug 为 null 时返回全站在线人数，否则返回指定天体页面的在线人数。
+  """
+  onlineCount(bodySlug: String): Int!
+}
+
+# -----------------------------------------------------------------------------
+# Input Types
+# -----------------------------------------------------------------------------
+
+input CreatePlanetInput {
+  title: String!
+  slug: String!
+  content: String!
+  excerpt: String
+  coverUrl: String
+  galaxyId: ID
+  """所属恒星(子分类) ID"""
+  starId: ID
+  tagIds: [ID!]
+  physicsParams: PhysicsParamsInput
+  aestheticsParams: AestheticsParamsInput
+  """创建后立即发布"""
+  publish: Boolean
+}
+
+input UpdatePlanetInput {
+  title: String
+  content: String
+  excerpt: String
+  coverUrl: String
+  galaxyId: ID
+  tagIds: [ID!]
+  pinned: Boolean
+  physicsParams: PhysicsParamsInput
+  aestheticsParams: AestheticsParamsInput
+}
+
+input CreateCommentInput {
+  bodySlug: String!
+  authorName: String!
+  authorEmail: String!
+  authorUrl: String
+  """Markdown 格式评论内容"""
+  content: String!
+  """父评论 ID（回复时填写）"""
+  parentId: ID
+  """PoW 挑战 ID"""
+  challengeId: String!
+  """PoW 计算得到的 nonce"""
+  powNonce: Int!
+}
+
+input AddReactionInput {
+  targetId: ID!
+  emoji: String!
+}
+
+input UpdateProfileInput {
+  title: String
+  bio: String
+  coverUrl: String
+  skills: [SkillInput!]
+  timeline: [TimelineEventInput!]
+  socialLinks: [SocialLinkInput!]
+}
+
+input SkillInput {
+  name: String!
+  level: Int!
+  category: String!
+  icon: String
+}
+
+input TimelineEventInput {
+  date: DateTime!
+  title: String!
+  description: String
+  icon: String
+}
+
+input SocialLinkInput {
+  platform: String!
+  url: String!
+  icon: String
+}
+
+input CreateGalaxyInput {
+  name: String!
+  slug: String!
+  description: String
+  parentId: ID
+  position: BaseCoordinatesInput
+  colorScheme: GalaxyColorSchemeInput
+}
+
+input UpdateGalaxyInput {
+  name: String
+  slug: String
+  description: String
+  parentId: ID
+  position: BaseCoordinatesInput
+  colorScheme: GalaxyColorSchemeInput
+}
+
+input CreateFriendLinkInput {
+  name: String!
+  url: String!
+  description: String
+  avatarUrl: String
+  group: String
+  sortOrder: Int
+}
+
+input UpdateFriendLinkInput {
+  name: String
+  url: String
+  description: String
+  avatarUrl: String
+  group: String
+  sortOrder: Int
+}
+
+input PhysicsParamsInput {
+  mass: Float!
+  orbitRadius: Float!
+  eccentricity: Float
+  orbitInclination: Float
+  phaseOffset: Float
+  orbitalSpeed: Float
+  textureSeed: Int
+}
+
+input AestheticsParamsInput {
+  planetType: String!
+  baseColorHSL: HSLColorInput!
+  atmosphereColor: String
+  surfaceRoughness: Float
+  hasRing: Boolean
+  glowIntensity: Float
+  noiseType: String
+}
+
+input HSLColorInput {
+  h: Float!
+  s: Float!
+  l: Float!
+}
+
+input BaseCoordinatesInput {
+  x: Float!
+  y: Float!
+  z: Float!
+}
+
+input GalaxyColorSchemeInput {
+  primary: String!
+  secondary: String!
+  nebula: String
+}
