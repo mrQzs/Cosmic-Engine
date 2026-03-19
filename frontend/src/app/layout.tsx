@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
+import Providers from './providers';
 import './globals.css';
 
 const inter = Inter({
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen overflow-hidden bg-cosmic-void text-cosmic-frost antialiased">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

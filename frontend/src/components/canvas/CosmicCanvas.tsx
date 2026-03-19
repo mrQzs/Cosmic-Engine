@@ -1,8 +1,10 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import Starfield from './Starfield';
+import { Bvh } from '@react-three/drei';
+import Universe from './Universe';
 import CameraController from './CameraController';
+import PostEffects from './PostEffects';
 
 export default function CosmicCanvas() {
   return (
@@ -15,9 +17,11 @@ export default function CosmicCanvas() {
         gl.setClearColor('#0a0a1a');
       }}
     >
-      <ambientLight intensity={0.3} />
-      <Starfield />
+      <Bvh firstHitOnly>
+        <Universe />
+      </Bvh>
       <CameraController />
+      <PostEffects />
     </Canvas>
   );
 }
