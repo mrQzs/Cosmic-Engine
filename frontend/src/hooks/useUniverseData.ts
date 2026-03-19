@@ -2,6 +2,7 @@
 
 import { useQuery } from '@apollo/client/react';
 import { UNIVERSE_QUERY } from '@/graphql/queries/universe';
+import { MOCK_GALAXIES } from '@/config/mockUniverseData';
 
 export interface HSLColor {
   h: number;
@@ -81,6 +82,18 @@ export interface UniverseData {
 
 export function useUniverseData() {
   const { data, loading, error } = useQuery<UniverseData>(UNIVERSE_QUERY);
+
+  // Fallback to mock data when backend is unreachable (dev without backend)
+  const useMock = !loading && (!!error || !data);
+
+  if (useMock) {
+    return {
+      galaxies: MOCK_GALAXIES as GalaxyData[],
+      stats: null,
+      loading: false,
+      error: undefined,
+    };
+  }
 
   return {
     galaxies: data?.universe.galaxies ?? [],
