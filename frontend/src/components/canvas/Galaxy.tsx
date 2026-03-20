@@ -286,7 +286,7 @@ export default function Galaxy({
       {/* Supermassive black hole at center */}
       <BlackHole
         accentColor={data.colorScheme.primary}
-        radius={18}
+        radius={40}
         onClick={() => onGalaxyClick?.(data.slug)}
       />
 

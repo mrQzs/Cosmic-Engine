@@ -1,16 +1,22 @@
 // CyberGeek Cosmic Engine — Black Hole Gravitational Lensing
 //
-// 简化施瓦西度规光线弯曲 + 吸积盘 Raymarching。
-// 光线在黑洞引力场中弯曲，扭曲背景星空 (envMap)，
-// 并在 Schwarzschild 半径 ×1.5~3 范围内渲染旋转吸积盘。
+// 参考 Dan Greenheck "Raytracing a Black Hole with WebGPU"
+// 基于 Schwarzschild 度规的光线偏转:
+//   偏转力 = 1.5 * rs / r² (per step)
+//
+// 关键半径:
+//   事件视界 = rs,  光子球 = 1.5rs,  ISCO = 3rs
+//
+// 盘面穿越检测: y 变号时插值精确交点
+// 多次穿越 → 吸积盘自然"包裹"黑洞上下 (Jean-Pierre Luminet 1979)
 
 precision highp float;
 
-uniform float      u_time;
-uniform vec2       u_resolution;
-uniform float      u_schwarzschildRadius;
-uniform vec3       u_accretionColor;
-uniform int        u_maxSteps;
+uniform float       u_time;
+uniform vec2        u_resolution;
+uniform float       u_schwarzschildRadius;
+uniform vec3        u_accretionColor;
+uniform int         u_maxSteps;
 uniform samplerCube u_envMap;
 
 varying vec2 vUv;
@@ -28,109 +34,144 @@ float noise1D(float p) {
     return mix(hash(i), hash(i + 1.0), f);
 }
 
+// 吸积盘采样: 盘面交点 → 颜色 + alpha
+vec4 sampleDisk(float hitR, float hitAngle, float rs, vec3 rayDir) {
+    float innerR = rs * 3.0;  // ISCO = 3rs
+    float outerR = rs * 8.0;
+
+    if (hitR < innerR || hitR > outerR) return vec4(0.0);
+
+    // 归一化径向 [0,1]
+    float rNorm = (hitR - innerR) / (outerR - innerR);
+
+    // 边缘柔化
+    float edgeFade = smoothstep(0.0, 0.15, rNorm) * smoothstep(1.0, 0.85, rNorm);
+
+    // 径向亮度: 内亮外暗 (T ∝ r^{-3/4})
+    float radialBright = pow(1.0 - rNorm, 0.75);
+
+    // Kepler 差分旋转: ω ∝ r^{-3/2}
+    float keplerPhase = u_time * 1.5 / pow(hitR / innerR, 1.5);
+    float rotAngle = hitAngle + keplerPhase;
+
+    // 旋臂/湍流结构
+    float spiral = noise1D(rotAngle * 3.0 + hitR * 12.0);
+    float spiral2 = noise1D(rotAngle * 7.0 - hitR * 8.0 + u_time * 0.2);
+    float arms = 0.5 + 0.5 * sin(rotAngle * 3.0 - hitR * 18.0);
+    float turbulence = (0.3 + 0.5 * spiral + 0.2 * spiral2) * (0.5 + 0.5 * arms);
+
+    // 温度梯度: 内(蓝白) → 外(红橙)
+    float tempFactor = pow(1.0 - rNorm, 0.75);
+    vec3 diskColor = mix(vec3(1.0, 0.4, 0.15), vec3(0.8, 0.9, 1.0), tempFactor) * u_accretionColor;
+
+    // 物理多普勒束射 D³
+    // Kepler 速度: v = sqrt(rs / 2r), 方向为切线
+    float v = sqrt(rs / (2.0 * hitR)) * 0.5; // 缩放以控制视觉强度
+    vec3 velocity = vec3(-sin(hitAngle), 0.0, cos(hitAngle)) * v;
+    float cosTheta = dot(normalize(velocity), normalize(rayDir));
+    float denom = max(1.0 - v * cosTheta, 0.15);
+    float doppler = clamp(1.0 / denom, 0.3, 3.5);
+    diskColor *= doppler * doppler * doppler;
+
+    float brightness = radialBright * turbulence * edgeFade * 2.5;
+    float alpha = brightness * 0.5;
+
+    return vec4(diskColor * brightness, alpha);
+}
+
 void main() {
     vec2 uv = (vUv - 0.5) * 2.0;
     float aspect = u_resolution.x / u_resolution.y;
     uv.x *= aspect;
 
-    // 光线初始化
-    vec3 rayOrigin = vec3(0.0, 0.0, 2.5);
-    vec3 rayDir = normalize(vec3(uv, -1.0));
-
-    vec3 blackHolePos = vec3(0.0);
     float rs = u_schwarzschildRadius;
 
-    // Raymarching
-    vec3 pos = rayOrigin;
-    float stepSize = 0.03;
+    // 光线初始化
+    vec3 pos = vec3(0.0, 0.0, 3.0);
+    vec3 rayDir = normalize(vec3(uv, -1.0));
+
+    // Raymarching 状态
     vec3 accumulatedColor = vec3(0.0);
-    float accretionAlpha = 0.0;
+    float alpha = 0.0;
     bool swallowed = false;
+    float prevY = pos.y;
+    float stepSize = 0.06; // 参考: 保证 128步 × 0.06 ≈ 7.7 单位路径
 
     for (int i = 0; i < 256; i++) {
         if (i >= u_maxSteps) break;
 
-        vec3 toCenter = blackHolePos - pos;
-        float dist = length(toCenter);
+        float dist = length(pos);
 
-        if (dist < rs * 0.8) {
+        // ===== 事件视界: r ≤ rs → 被吞噬 =====
+        if (dist < rs * 1.01) {
             swallowed = true;
             break;
         }
 
-        // 引力透镜偏转
-        float deflectionStrength = rs * rs * 2.0;
-        vec3 deflection = normalize(toCenter) * (deflectionStrength / (dist * dist));
-        rayDir = normalize(rayDir + deflection);
+        // ===== 引力偏转: bendStrength = 1.5 * rs / r² =====
+        // 参考 Dan Greenheck 实现, gravitationalLensing = 1.5
+        float bendStrength = 1.5 * rs / (dist * dist);
+        vec3 toCenter = normalize(-pos);
+        rayDir = normalize(rayDir + toCenter * bendStrength * stepSize);
 
-        // 吸积盘检测
-        float innerRing = rs * 1.5;
-        float outerRing = rs * 4.0;
-        float diskThickness = rs * 0.15;
+        // 前进
+        vec3 newPos = pos + rayDir * stepSize;
 
-        if (abs(pos.y) < diskThickness && dist > innerRing && dist < outerRing) {
-            float angle = atan(pos.z, pos.x);
-            float rotatedAngle = angle + u_time * 1.2;
+        // ===== 盘面穿越检测 (y 变号) =====
+        if (prevY * newPos.y < 0.0 && alpha < 0.95) {
+            float t = abs(prevY) / (abs(prevY) + abs(newPos.y));
+            vec3 hitPos = mix(pos, newPos, t);
+            float hitR = length(hitPos);
+            float hitAngle = atan(hitPos.z, hitPos.x);
 
-            // 径向亮度：内环更亮
-            float radialFade = 1.0 - smoothstep(innerRing, outerRing, dist);
-            radialFade = pow(radialFade, 0.5);
-
-            // 旋臂结构
-            float spiral = noise1D(rotatedAngle * 3.0 + dist * 15.0);
-            float arms = 0.5 + 0.5 * sin(rotatedAngle * 3.0 - dist * 20.0 + u_time * 1.5);
-
-            float diskBrightness = radialFade * (0.4 + 0.6 * spiral) * (0.5 + 0.5 * arms);
-
-            // 多普勒偏色
-            float doppler = 0.5 + 0.5 * sin(angle + u_time * 0.8);
-            vec3 diskColor = mix(
-                u_accretionColor * vec3(1.6, 0.7, 0.3),
-                u_accretionColor * vec3(0.5, 0.9, 1.8),
-                doppler
-            );
-
-            // 提高采样 alpha（之前 0.15 太低，改为 0.4）
-            float sampleAlpha = diskBrightness * 0.4;
-            accumulatedColor += diskColor * diskBrightness * 2.0 * sampleAlpha * (1.0 - accretionAlpha);
-            accretionAlpha += sampleAlpha * (1.0 - accretionAlpha);
-            accretionAlpha = min(accretionAlpha, 1.0);
+            vec4 diskSample = sampleDisk(hitR, hitAngle, rs, rayDir);
+            if (diskSample.a > 0.0) {
+                // 前向合成: 新颜色叠加在已有之上
+                float remaining = 1.0 - alpha;
+                accumulatedColor += diskSample.rgb * diskSample.a * remaining;
+                alpha += diskSample.a * remaining;
+                alpha = min(alpha, 1.0);
+            }
         }
 
-        pos += rayDir * stepSize;
-        stepSize *= 1.03;
+        prevY = newPos.y;
+        pos = newPos;
 
-        if (dist > 8.0) break;
+        // 逃逸
+        if (dist > 10.0) break;
+        // 已不透明
+        if (alpha > 0.99) break;
     }
 
+    // ===== 最终颜色 =====
     vec3 finalColor;
 
     if (swallowed) {
+        // 事件视界内: 背景为纯黑，只保留途中积累的盘光
         finalColor = accumulatedColor;
     } else {
+        // 逃逸光线: 用偏转后的方向采样环境贴图
         vec3 envColor = textureCube(u_envMap, rayDir).rgb;
-        finalColor = mix(envColor, accumulatedColor, accretionAlpha);
+        finalColor = mix(envColor, accumulatedColor, alpha);
     }
 
-    // 事件视界阴影
-    vec2 screenCenter = (vUv - 0.5) * 2.0;
-    screenCenter.x *= aspect;
-    float centerDist = length(screenCenter);
-    float shadowMask = smoothstep(rs * 0.5, rs * 1.5, centerDist);
-    finalColor *= shadowMask;
-
-    // 事件视界边缘发光（光子球）
-    float photonRing = smoothstep(rs * 0.9, rs * 1.1, centerDist) * (1.0 - smoothstep(rs * 1.1, rs * 1.6, centerDist));
-    finalColor += u_accretionColor * photonRing * 1.5;
-    accretionAlpha = max(accretionAlpha, photonRing * 0.8);
-
-    // 边缘淡出（圆形）
+    // billboard 边缘淡出
     float edgeDist = length((vUv - 0.5) * 2.0);
-    float edgeFade = 1.0 - smoothstep(0.6, 1.0, edgeDist);
+    float edgeFade = 1.0 - smoothstep(0.75, 1.0, edgeDist);
 
-    // Alpha: 事件视界内不透明黑色 + 吸积盘 + 光子环
-    float holeAlpha = (1.0 - shadowMask) * 0.95; // 中心黑洞本体
-    float alpha = max(max(accretionAlpha, holeAlpha), photonRing) * edgeFade;
+    // Alpha 策略:
+    // - swallowed → 完全不透明 (事件视界 = 不透光黑体)
+    // - 逃逸 → 用偏转角判断受引力影响程度
+    float outAlpha;
+    if (swallowed) {
+        outAlpha = 1.0;
+    } else {
+        vec3 origDir = normalize(vec3(uv, -1.0));
+        float deflection = 1.0 - dot(origDir, rayDir);
+        float lensingAlpha = smoothstep(0.0, 0.1, deflection);
+        outAlpha = max(alpha, lensingAlpha);
+    }
 
-    gl_FragColor = vec4(finalColor, alpha);
+    outAlpha *= edgeFade;
+    gl_FragColor = vec4(finalColor, outAlpha);
 }
