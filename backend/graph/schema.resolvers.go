@@ -16,6 +16,7 @@ import (
 
 	"cosmic-engine/backend/graph/generated"
 	"cosmic-engine/backend/graph/model"
+	"cosmic-engine/backend/internal/antispam"
 	"cosmic-engine/backend/internal/auth"
 	"cosmic-engine/backend/internal/cache"
 	"cosmic-engine/backend/internal/config"
@@ -145,16 +146,28 @@ func (r *mutationResolver) CreateComment(ctx context.Context, input model.Create
 		return mockCreateComment(input)
 	}
 
-	// TODO: validate PoW challenge (input.ChallengeID, input.PowNonce)
+	// Layer 1: Validate PoW challenge
+	if r.AntiSpam != nil {
+		if err := r.AntiSpam.Validate(ctx, input.ChallengeID, input.PowNonce); err != nil {
+			return nil, fmt.Errorf("pow validation failed: %w", err)
+		}
+	}
 
+	// Layer 3: Content analysis (blacklisted URLs, relevance)
 	body, err := r.Repos.Body.GetBySlug(ctx, input.BodySlug)
 	if err != nil {
 		return nil, fmt.Errorf("body not found: %s", input.BodySlug)
 	}
+	if err := antispam.ValidateContent(input.Content, body.Content.String); err != nil {
+		return nil, fmt.Errorf("content rejected: %w", err)
+	}
 
-	// Calculate satellite orbital params
+	// Calculate satellite orbital params — deterministic seed from body ID bytes + comment index
 	totalComments := int(body.CommentCount)
-	seed := uint64(time.Now().UnixNano())
+	idBytes := body.ID[:]
+	seed := uint64(idBytes[0])<<56 | uint64(idBytes[1])<<48 | uint64(idBytes[2])<<40 | uint64(idBytes[3])<<32 |
+		uint64(idBytes[4])<<24 | uint64(idBytes[5])<<16 | uint64(idBytes[6])<<8 | uint64(idBytes[7])
+	seed ^= uint64(totalComments)
 	orbit := physics.CalculateSatelliteOrbit(totalComments, totalComments+1, seed)
 	orbitalJSON, err := json.Marshal(orbit)
 	if err != nil {
@@ -353,6 +366,19 @@ func (r *mutationResolver) UpdateSiteSetting(ctx context.Context, key string, va
 
 // RequestPowChallenge is the resolver for the requestPowChallenge field.
 func (r *mutationResolver) RequestPowChallenge(ctx context.Context) (*model.PowChallenge, error) {
+	if r.AntiSpam != nil {
+		challenge, err := r.AntiSpam.GenerateChallenge(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("generate pow challenge: %w", err)
+		}
+		return &model.PowChallenge{
+			ChallengeID: challenge.ChallengeID,
+			Prefix:      challenge.Prefix,
+			Difficulty:  challenge.Difficulty,
+			ExpiresAt:   model.DateTime{Time: challenge.ExpiresAt},
+		}, nil
+	}
+	// Fallback mock for dev mode (no Redis)
 	return &model.PowChallenge{
 		ChallengeID: fmt.Sprintf("pow-%d", time.Now().UnixNano()),
 		Prefix:      base64.StdEncoding.EncodeToString([]byte("mock-challenge")),

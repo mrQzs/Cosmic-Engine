@@ -6,6 +6,9 @@ import * as THREE from 'three';
 import { newtonRaphsonKepler, keplerPosition } from '@/utils/mathHelpers';
 import Atmosphere from './Atmosphere';
 import OrbitRing from './OrbitRing';
+import SatelliteSwarm from './SatelliteSwarm';
+import { useCommentStore } from '@/stores/commentStore';
+import { useCosmicStore } from '@/stores/cosmicStore';
 import planetVertSource from '@/shaders/planetSurface.vert.glsl';
 import planetFragSource from '@/shaders/planetSurface.frag.glsl';
 
@@ -36,9 +39,13 @@ export interface PlanetProps {
   };
   /** Whether this planet is dimmed by a filter */
   dimmed?: boolean;
+  /** Comment count for deciding whether to render satellites */
+  commentCount?: number;
   onClick?: () => void;
   onPointerOver?: () => void;
   onPointerOut?: () => void;
+  onSatelliteClick?: (id: string, position: THREE.Vector3) => void;
+  onSatelliteHover?: (id: string | null, position: THREE.Vector3 | null) => void;
 }
 
 /** Convert HSL (h:0-360, s:0-100, l:0-100) to THREE.Color */
@@ -47,18 +54,26 @@ function hslToColor(hsl: { h: number; s: number; l: number }): THREE.Color {
 }
 
 export default function Planet({
-  slug: _slug,
+  slug,
   galaxyPosition,
   physics,
   aesthetics,
   dimmed = false,
+  commentCount = 0,
   onClick,
   onPointerOver,
   onPointerOut,
+  onSatelliteClick,
+  onSatelliteHover,
 }: PlanetProps) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const emissiveBoost = useRef(0);
+  const worldPosRef = useRef(new THREE.Vector3());
+
+  const comments = useCommentStore((s) => s.comments);
+  const pendingComments = useCommentStore((s) => s.pendingComments);
+  const viewMode = useCosmicStore((s) => s.viewMode);
 
   const planetSize = useMemo(() => 1 + Math.log(physics.mass + 1) * 0.8, [physics.mass]);
 
@@ -93,6 +108,7 @@ export default function Planet({
     const z = galaxyPosition[2] + oy * cosI;
 
     groupRef.current.position.set(x, y, z);
+    worldPosRef.current.set(x, y, z);
 
     // Self-rotation
     if (meshRef.current) {
@@ -155,6 +171,18 @@ export default function Planet({
         inclination={physics.orbitInclination}
         centerOffset={galaxyPosition}
       />
+
+      {/* Comment satellites */}
+      {(viewMode === 'planet' || viewMode === 'article' || commentCount > 0) && (
+        <SatelliteSwarm
+          bodySlug={slug}
+          comments={comments}
+          pendingComments={pendingComments}
+          planetWorldPosition={worldPosRef.current}
+          onSatelliteClick={onSatelliteClick}
+          onSatelliteHover={onSatelliteHover}
+        />
+      )}
     </group>
   );
 }

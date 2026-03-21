@@ -344,6 +344,7 @@ export default function Galaxy({
           galaxyPosition={[0, 0, 0]}
           physics={planet.physicsParams}
           aesthetics={planet.aestheticsParams}
+          commentCount={planet.commentCount}
           dimmed={visiblePlanets !== undefined && !visiblePlanets.has(planet.slug)}
           onClick={() => onPlanetClick?.(planet.slug)}
         />

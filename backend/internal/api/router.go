@@ -14,6 +14,7 @@ import (
 
 	"cosmic-engine/backend/graph"
 	"cosmic-engine/backend/graph/generated"
+	"cosmic-engine/backend/internal/antispam"
 	"cosmic-engine/backend/internal/auth"
 	"cosmic-engine/backend/internal/cache"
 	"cosmic-engine/backend/internal/config"
@@ -53,7 +54,11 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	if deps.RedisClient != nil {
 		appCache = cache.New(deps.RedisClient)
 	}
-	resolver := &graph.Resolver{Config: cfg, Repos: repos, Cache: appCache}
+	var powSvc *antispam.PowService
+	if deps.RedisClient != nil {
+		powSvc = antispam.NewPowService(deps.RedisClient)
+	}
+	resolver := &graph.Resolver{Config: cfg, Repos: repos, Cache: appCache, AntiSpam: powSvc}
 	srv := newGraphQLServer(resolver, cfg)
 
 	app.All("/graphql", func(c *fiber.Ctx) error {

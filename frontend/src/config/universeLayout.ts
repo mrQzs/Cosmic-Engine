@@ -32,6 +32,18 @@ export const FLY_TO = {
   focusOffset: 40,
 } as const;
 
+/** Satellite (comment) LOD thresholds */
+export const SATELLITE_LOD = {
+  /** Beyond this, satellites hidden */
+  far: 60,
+  /** Within this, full InstancedMesh rendering */
+  near: 25,
+  /** Cross-fade band as fraction of threshold (±15%) */
+  crossFadeBand: 0.15,
+  /** Max instances to render */
+  maxInstances: 200,
+} as const;
+
 /** MiniMap canvas size */
 export const MINIMAP = {
   size: 256,

@@ -43,7 +43,7 @@ func CalculateSatelliteOrbit(commentIndex, totalComments int, seed uint64) Satel
 	jitter := deterministicFloat(seed, 0) * phaseSpacing * 0.3
 	phaseOffset := float64(posInRing)*phaseSpacing + jitter
 
-	eccentricity := deterministicFloat(seed, 1) * 0.05 // Very low for satellites
+	eccentricity := 0.02 + deterministicFloat(seed, 1)*0.13 // Range 0.02~0.15 for natural elliptical orbits
 
 	orbitalSpeed := SatelliteKeplerK / math.Sqrt(orbitRadius*orbitRadius*orbitRadius)
 	if orbitalSpeed < MinOrbitalSpeed {
