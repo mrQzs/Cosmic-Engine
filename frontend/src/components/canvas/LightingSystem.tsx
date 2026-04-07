@@ -30,8 +30,9 @@ export default function LightingSystem({ galaxyLights = [] }: LightingSystemProp
 
   return (
     <>
-      <ambientLight intensity={0.07} />
-      <pointLight ref={cameraLightRef} intensity={0.15} distance={500} decay={2} color="#e2e8f0" />
+      <ambientLight intensity={0.12} />
+      <hemisphereLight args={['#e2e8f0', '#0a0a1a', 0.08]} />
+      <pointLight ref={cameraLightRef} intensity={0.3} distance={500} decay={2} color="#e2e8f0" />
       {activeLights.map((light, i) => (
         <pointLight
           key={i}

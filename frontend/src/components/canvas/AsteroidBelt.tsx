@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useMemo, useEffect } from 'react';
-import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createAsteroidVariants } from '@/utils/asteroidGeometry';
 import { useCosmicStore } from '@/stores/cosmicStore';
@@ -12,8 +12,6 @@ import { QualityLevel } from '@cosmic-engine/shared';
 const BELT = {
   innerRadius: 75,
   outerRadius: 90,
-  zones: 8,
-  zoneUpdateSkip: 4, // Far zones update every N frames
   driftSpeed: 0.003,
 } as const;
 
@@ -37,10 +35,6 @@ function mulberry32(seed: number) {
 
 const _dummy = new THREE.Object3D();
 const _color = new THREE.Color();
-// Reusable objects for per-frame matrix decomposition — never allocate in useFrame
-const _reuseMat4 = new THREE.Matrix4();
-const _reuseScale = new THREE.Vector3();
-const _reuseQuat = new THREE.Quaternion();
 
 interface AsteroidBeltProps {
   galaxyPosition: [number, number, number];
@@ -50,7 +44,7 @@ interface AsteroidBeltProps {
 }
 
 export default function AsteroidBelt({
-  galaxyPosition,
+  galaxyPosition: _galaxyPosition,
   galaxySeed,
   asteroids,
   onClick,
@@ -64,9 +58,7 @@ export default function AsteroidBelt({
   const roughRef = useRef<THREE.InstancedMesh>(null);
   const mediumRef = useRef<THREE.InstancedMesh>(null);
   const smoothRef = useRef<THREE.InstancedMesh>(null);
-
-  const frameCountRef = useRef(0);
-  const { camera } = useThree();
+  const groupRef = useRef<THREE.Group>(null);
 
   // Geometry variants
   const geometries = useMemo(() => createAsteroidVariants(galaxySeed), [galaxySeed]);
@@ -97,27 +89,17 @@ export default function AsteroidBelt({
     const positions: { angle: number; radius: number; y: number }[] = [];
 
     for (let i = 0; i < totalAsteroids; i++) {
-      // Sort by creation time: newest at outer edge
       const t = i / Math.max(1, totalAsteroids - 1);
       const radius = BELT.innerRadius + t * (BELT.outerRadius - BELT.innerRadius);
       const angle = rng() * Math.PI * 2;
-      const y = (rng() - 0.5) * 8; // Vertical spread
+      const y = (rng() - 0.5) * 8;
 
       positions.push({ angle, radius, y });
     }
     return positions;
   }, [totalAsteroids, galaxySeed]);
 
-  // Color from creation time (warm=new, cool=old)
-  function asteroidColor(a: AsteroidData): THREE.Color {
-    const ageDays = (Date.now() - new Date(a.createdAt).getTime()) / 86400000;
-    const t = Math.min(1, ageDays / 365);
-    // Warm (orange 0.08) → Cool (blue 0.6)
-    const hue = 0.08 + t * 0.52;
-    return _color.setHSL(hue, 0.7, 0.55);
-  }
-
-  // Initialize matrices and colors for each bucket
+  // Initialize matrices (full position + rotation + scale) for each bucket
   function initBucket(mesh: THREE.InstancedMesh | null, indices: number[]) {
     if (!mesh || indices.length === 0) return;
 
@@ -128,9 +110,11 @@ export default function AsteroidBelt({
       if (!pos) continue;
 
       const volume = 0.5 + Math.min(2.5, ((a.wordCount || 0) / 2000) * 2.5);
-      const x = galaxyPosition[0] + Math.cos(pos.angle) * pos.radius;
-      const y = galaxyPosition[1] + pos.y;
-      const z = galaxyPosition[2] + Math.sin(pos.angle) * pos.radius;
+
+      // Full position in local space (galaxy-relative)
+      const x = Math.cos(pos.angle) * pos.radius;
+      const y = pos.y;
+      const z = Math.sin(pos.angle) * pos.radius;
 
       _dummy.position.set(x, y, z);
       _dummy.scale.setScalar(volume);
@@ -138,20 +122,14 @@ export default function AsteroidBelt({
       _dummy.updateMatrix();
       mesh.setMatrixAt(j, _dummy.matrix);
 
-      // Color
-      const col = asteroidColor(a);
-      // Dim non-highlighted when searching
-      if (searchQuery && !highlightedIds.has(a.id)) {
-        col.multiplyScalar(0.15);
-      }
-      // Glow for important
-      if (a.important) {
-        col.addScalar(0.15);
-      }
-      // Selected for merge: bright tint
-      if (selectedForMerge.has(a.id)) {
-        col.lerp(new THREE.Color('#38bdf8'), 0.5);
-      }
+      // Color from creation time (warm=new, cool=old)
+      const ageDays = (Date.now() - new Date(a.createdAt).getTime()) / 86400000;
+      const t = Math.min(1, ageDays / 365);
+      const hue = 0.08 + t * 0.52;
+      const col = _color.setHSL(hue, 0.7, 0.55);
+      if (searchQuery && !highlightedIds.has(a.id)) col.multiplyScalar(0.15);
+      if (a.important) col.addScalar(0.15);
+      if (selectedForMerge.has(a.id)) col.lerp(new THREE.Color('#38bdf8'), 0.5);
       mesh.setColorAt(j, col);
     }
 
@@ -163,65 +141,15 @@ export default function AsteroidBelt({
     initBucket(roughRef.current, assignments.rough);
     initBucket(mediumRef.current, assignments.medium);
     initBucket(smoothRef.current, assignments.smooth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments, beltPositions, asteroids, searchQuery, highlightedIds, selectedForMerge]);
 
-  // Per-frame drift animation with zone-based partial updates
+  // GPU-optimal drift: all asteroids share the same angular speed →
+  // rotate the parent group instead of updating 5000 matrices per frame.
+  // O(1) per frame, raycasting stays correct (group transform is applied).
   useFrame((_, delta) => {
-    frameCountRef.current++;
-    if (totalAsteroids === 0) return;
-
-    const meshes = [
-      { ref: roughRef.current, indices: assignments.rough },
-      { ref: mediumRef.current, indices: assignments.medium },
-      { ref: smoothRef.current, indices: assignments.smooth },
-    ];
-
-    // Determine camera azimuth relative to galaxy center
-    const dx = camera.position.x - galaxyPosition[0];
-    const dz = camera.position.z - galaxyPosition[2];
-    const cameraAngle = Math.atan2(dz, dx);
-
-    for (const { ref: mesh, indices } of meshes) {
-      if (!mesh || indices.length === 0) continue;
-
-      for (let j = 0; j < indices.length; j++) {
-        const i = indices[j];
-        const pos = beltPositions[i];
-        if (!pos) continue;
-
-        // Zone-based update: check if this asteroid is near camera
-        const angleDiff = Math.abs(
-          ((pos.angle - cameraAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI,
-        );
-        const zoneIdx = Math.floor((pos.angle / (Math.PI * 2)) * BELT.zones) % BELT.zones;
-        const nearCamera = angleDiff < Math.PI / 3; // Within 60° of camera
-
-        // Skip far zones on most frames
-        if (
-          !nearCamera &&
-          frameCountRef.current % BELT.zoneUpdateSkip !== zoneIdx % BELT.zoneUpdateSkip
-        ) {
-          continue;
-        }
-
-        // Apply drift
-        pos.angle += BELT.driftSpeed * delta;
-
-        const x = galaxyPosition[0] + Math.cos(pos.angle) * pos.radius;
-        const y = galaxyPosition[1] + pos.y;
-        const z = galaxyPosition[2] + Math.sin(pos.angle) * pos.radius;
-
-        mesh.getMatrixAt(j, _reuseMat4);
-        _reuseMat4.decompose(_dummy.position, _reuseQuat, _reuseScale);
-
-        _dummy.position.set(x, y, z);
-        _dummy.quaternion.copy(_reuseQuat);
-        _dummy.scale.copy(_reuseScale);
-        _dummy.updateMatrix();
-        mesh.setMatrixAt(j, _dummy.matrix);
-      }
-
-      mesh.instanceMatrix.needsUpdate = true;
+    if (groupRef.current) {
+      groupRef.current.rotation.y += BELT.driftSpeed * delta;
     }
   });
 
@@ -238,7 +166,7 @@ export default function AsteroidBelt({
   if (qualityLevel === QualityLevel.UltraLow || totalAsteroids === 0) return null;
 
   return (
-    <group>
+    <group ref={groupRef}>
       {assignments.rough.length > 0 && (
         <instancedMesh
           ref={roughRef}

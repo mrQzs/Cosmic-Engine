@@ -69,7 +69,7 @@ export default function InspirationToast({
       {/* Header */}
       <div className="flex items-center justify-between mb-2 relative">
         <span className="text-xs text-[var(--crt-color)] uppercase tracking-wider">
-          // ASTEROID FRAGMENT {currentIdx + 1}/{asteroids.length}
+          {`// ASTEROID FRAGMENT ${currentIdx + 1}/${asteroids.length}`}
         </span>
         <div className="flex items-center gap-2">
           {asteroid.tags.map((tag) => (

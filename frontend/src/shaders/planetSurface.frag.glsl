@@ -16,6 +16,7 @@ uniform float u_fadeProgress;     // [0, 1] macro↔micro blend
 varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vWorldPosition;
+varying vec3 vViewDir;
 
 // --- Simplex noise helpers ---
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -144,11 +145,28 @@ void main() {
     ) * 0.08;
     color += variation;
 
-    // Simple hemisphere lighting
+    // Enhanced lighting model
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(vViewDir);
     vec3 lightDir = normalize(vec3(1.0, 0.5, 0.8));
-    float NdotL = max(dot(normalize(vNormal), lightDir), 0.0);
-    float lighting = 0.3 + 0.7 * NdotL;
+    float NdotL = max(dot(N, lightDir), 0.0);
+
+    // Diffuse with lower ambient floor for solid dark-side terminator
+    float lighting = 0.15 + 0.85 * NdotL;
     color *= lighting;
+
+    // Blinn-Phong specular — shininess scales with smoothness
+    float shininess = mix(8.0, 64.0, 1.0 - u_surfaceRoughness);
+    vec3 H = normalize(lightDir + V);
+    float spec = pow(max(dot(N, H), 0.0), shininess);
+    // Only apply specular on lit side
+    spec *= step(0.01, NdotL);
+    color += vec3(1.0, 0.97, 0.9) * spec * 0.25 * (1.0 - u_surfaceRoughness);
+
+    // Rim lighting — separates planet silhouette from dark background
+    float NdotV = max(dot(N, V), 0.0);
+    float rim = pow(1.0 - NdotV, 3.0) * 0.2;
+    color += u_baseColor * rim;
 
     // Emissive glow
     color += u_baseColor * u_glowIntensity * 0.3;

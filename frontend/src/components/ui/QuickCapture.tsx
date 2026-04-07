@@ -65,7 +65,7 @@ export default function QuickCapture({ onSubmit, submitting = false }: QuickCapt
         />
 
         <div className="text-xs text-[var(--crt-color)] uppercase tracking-wider mb-3 relative">
-          // QUICK CAPTURE — ASTEROID FRAGMENT
+          {'// QUICK CAPTURE — ASTEROID FRAGMENT'}
         </div>
 
         <textarea

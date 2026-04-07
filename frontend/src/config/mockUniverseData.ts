@@ -34,7 +34,7 @@ export const MOCK_GALAXIES: GalaxyData[] = [
         ],
         physicsParams: {
           mass: 8,
-          orbitRadius: 35,
+          orbitRadius: 75,
           eccentricity: 0.15,
           orbitInclination: 0.1,
           phaseOffset: 0,
@@ -64,7 +64,7 @@ export const MOCK_GALAXIES: GalaxyData[] = [
         ],
         physicsParams: {
           mass: 12,
-          orbitRadius: 55,
+          orbitRadius: 130,
           eccentricity: 0.3,
           orbitInclination: 0.25,
           phaseOffset: 2.1,
@@ -91,7 +91,7 @@ export const MOCK_GALAXIES: GalaxyData[] = [
         tags: [{ id: 't5', name: 'TypeScript', slug: 'typescript', color: '#3178c6' }],
         physicsParams: {
           mass: 5,
-          orbitRadius: 25,
+          orbitRadius: 60,
           eccentricity: 0.05,
           orbitInclination: 0.05,
           phaseOffset: 4.2,
@@ -138,7 +138,7 @@ export const MOCK_GALAXIES: GalaxyData[] = [
         ],
         physicsParams: {
           mass: 15,
-          orbitRadius: 45,
+          orbitRadius: 110,
           eccentricity: 0.2,
           orbitInclination: 0.15,
           phaseOffset: 1.0,
@@ -165,7 +165,7 @@ export const MOCK_GALAXIES: GalaxyData[] = [
         tags: [{ id: 't8', name: 'PostgreSQL', slug: 'postgresql', color: '#336791' }],
         physicsParams: {
           mass: 6,
-          orbitRadius: 30,
+          orbitRadius: 70,
           eccentricity: 0.1,
           orbitInclination: 0.3,
           phaseOffset: 3.5,
@@ -217,7 +217,7 @@ export const MOCK_GALAXIES: GalaxyData[] = [
         ],
         physicsParams: {
           mass: 20,
-          orbitRadius: 40,
+          orbitRadius: 95,
           eccentricity: 0.25,
           orbitInclination: 0.2,
           phaseOffset: 0.5,

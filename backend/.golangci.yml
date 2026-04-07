@@ -1,0 +1,34 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - bodyclose
+
+linters-settings:
+  lll:
+    line-length: 120
+  goimports:
+    local-prefixes: cosmic-engine
+
+issues:
+  exclude-dirs:
+    - sqlc/generated
+  exclude-rules:
+    - path: graph/model/models_gen.go
+      linters:
+        - errcheck
+        - govet
+        - staticcheck
+        - unused
+        - goimports

@@ -13,6 +13,12 @@ void main() {
 }
 `;
 
+// Scene-to-shader coordinate scale.
+// Shader space: rs=0.3, disk 0.9–2.4, typical view at ~5 units.
+// Scene space: billboard radius in scene units.
+// SHADER_SCALE = radius / shaderHalfView (how many shader units the billboard covers)
+const SHADER_HALF_VIEW = 4.0; // Billboard covers ±4 shader units
+
 /** High-quality procedural starfield CubeTexture with nebula patches for visible lensing */
 function createStarfieldCubeTexture(size = 512): THREE.CubeTexture {
   const faces: HTMLCanvasElement[] = [];
@@ -39,14 +45,14 @@ function createStarfieldCubeTexture(size = 512): THREE.CubeTexture {
       ctx.fillRect(0, 0, size, size);
     }
 
-    // Stars — brighter and more varied for visible lensing distortion
-    const starCount = 600;
+    // Stars — subtle for background lensing, not dominant
+    const starCount = 300;
     for (let i = 0; i < starCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
-      const isBright = Math.random() < 0.1;
-      const r = isBright ? 1.0 + Math.random() * 2.0 : Math.random() * 1.2 + 0.3;
-      const brightness = isBright ? 0.8 + Math.random() * 0.2 : 0.4 + Math.random() * 0.6;
+      const isBright = Math.random() < 0.05;
+      const r = isBright ? 0.8 + Math.random() * 1.0 : Math.random() * 0.8 + 0.2;
+      const brightness = isBright ? 0.5 + Math.random() * 0.2 : 0.2 + Math.random() * 0.3;
 
       // Varied star colors
       const colorRoll = Math.random();
@@ -102,6 +108,10 @@ interface BlackHoleProps {
 }
 
 const _parentQuat = new THREE.Quaternion();
+const _invParentQuat = new THREE.Quaternion();
+const _camLocal = new THREE.Vector3();
+const _camRight = new THREE.Vector3();
+const _camUp = new THREE.Vector3();
 
 export default function BlackHole({
   accentColor = '#ff6622',
@@ -109,35 +119,62 @@ export default function BlackHole({
   onClick,
 }: BlackHoleProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { size, camera } = useThree();
+  const { camera } = useThree();
 
   const envMap = useMemo(() => createStarfieldCubeTexture(), []);
+
+  // Scale factor: scene units → shader units
+  const shaderScale = radius / SHADER_HALF_VIEW;
 
   const uniforms = useMemo(
     () => ({
       u_time: { value: 0 },
-      u_resolution: { value: new THREE.Vector2(size.width, size.height) },
       u_schwarzschildRadius: { value: 0.3 },
       u_accretionColor: { value: new THREE.Color(accentColor) },
       u_maxSteps: { value: 128 },
       u_envMap: { value: envMap },
+      u_cameraLocalPos: { value: new THREE.Vector3(0, 0.3, 5) },
+      u_billboardHalfSize: { value: SHADER_HALF_VIEW },
+      u_cameraRight: { value: new THREE.Vector3(1, 0, 0) },
+      u_cameraUp: { value: new THREE.Vector3(0, 1, 0) },
     }),
-    [accentColor, envMap, size.width, size.height],
+    [accentColor, envMap],
   );
 
   useFrame(({ clock }) => {
     uniforms.u_time.value = clock.elapsedTime;
-    // Billboard: always face camera, accounting for parent rotation
-    if (meshRef.current) {
-      // mesh.worldQuat = parent.worldQuat × mesh.localQuat
-      // 要 mesh.worldQuat = camera.quat
-      // → mesh.localQuat = parent.worldQuat⁻¹ × camera.quat
-      if (meshRef.current.parent) {
-        meshRef.current.parent.getWorldQuaternion(_parentQuat);
-        meshRef.current.quaternion.copy(_parentQuat.invert().multiply(camera.quaternion));
-      } else {
-        meshRef.current.quaternion.copy(camera.quaternion);
-      }
+
+    if (!meshRef.current) return;
+
+    // Billboard: always face camera, accounting for parent rotation.
+    // Also compute camera basis vectors in galaxy-local space for the shader.
+    if (meshRef.current.parent) {
+      meshRef.current.parent.getWorldQuaternion(_parentQuat);
+      _invParentQuat.copy(_parentQuat).invert();
+
+      // Billboard orientation: local quat = parentInv × cameraQuat
+      meshRef.current.quaternion.copy(_invParentQuat).multiply(camera.quaternion);
+
+      // Camera position in galaxy-local space → shader coordinates
+      _camLocal.copy(camera.position);
+      meshRef.current.parent.worldToLocal(_camLocal);
+      _camLocal.divideScalar(shaderScale);
+      uniforms.u_cameraLocalPos.value.copy(_camLocal);
+
+      // Camera right/up basis vectors in galaxy-local space
+      // These match the billboard's UV axes, ensuring correct ray orientation.
+      _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion).applyQuaternion(_invParentQuat);
+      _camUp.set(0, 1, 0).applyQuaternion(camera.quaternion).applyQuaternion(_invParentQuat);
+      uniforms.u_cameraRight.value.copy(_camRight);
+      uniforms.u_cameraUp.value.copy(_camUp);
+    } else {
+      meshRef.current.quaternion.copy(camera.quaternion);
+      _camLocal.copy(camera.position).divideScalar(shaderScale);
+      uniforms.u_cameraLocalPos.value.copy(_camLocal);
+      _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+      _camUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+      uniforms.u_cameraRight.value.copy(_camRight);
+      uniforms.u_cameraUp.value.copy(_camUp);
     }
   });
 

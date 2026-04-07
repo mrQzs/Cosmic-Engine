@@ -215,6 +215,15 @@
   }
 }
 
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 @keyframes float {
   0%,
   100% {

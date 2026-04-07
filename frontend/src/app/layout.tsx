@@ -38,6 +38,42 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css"
         />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#06b6d4" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'WebSite',
+                  name: 'CyberGeek | Cosmic Blog',
+                  url: 'https://wo.city',
+                  description:
+                    'An immersive 3D space-themed blog where articles are planets, comments are satellites, and categories are galaxies.',
+                  potentialAction: {
+                    '@type': 'SearchAction',
+                    target: 'https://wo.city/search?q={search_term_string}',
+                    'query-input': 'required name=search_term_string',
+                  },
+                },
+                {
+                  '@type': 'Blog',
+                  name: 'CyberGeek',
+                  url: 'https://wo.city',
+                  description: 'A cosmic blog exploring technology, code, and the universe.',
+                },
+              ],
+            }),
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'))}`,
+          }}
+        />
       </head>
       <body className="min-h-screen overflow-hidden bg-cosmic-void text-cosmic-frost antialiased">
         <Providers>{children}</Providers>

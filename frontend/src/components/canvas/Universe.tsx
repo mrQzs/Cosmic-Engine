@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useCallback } from 'react';
+import * as THREE from 'three';
 import { useUniverseData } from '@/hooks/useUniverseData';
 import { useCosmicStore } from '@/stores/cosmicStore';
 import { useCameraFlyTo } from '@/hooks/useCameraFlyTo';
@@ -8,7 +9,7 @@ import LightingSystem from './LightingSystem';
 import Galaxy from './Galaxy';
 
 interface UniverseProps {
-  onPlanetClick?: (slug: string) => void;
+  onPlanetClick?: (slug: string, worldPosition?: THREE.Vector3) => void;
   onGalaxyClick?: (slug: string) => void;
   visiblePlanets?: Set<string>;
 }
@@ -28,22 +29,14 @@ export default function Universe({ onPlanetClick, onGalaxyClick, visiblePlanets 
     [galaxies],
   );
 
-  // Click planet → fly to planet orbit position
+  // Click planet → fly to planet's current world position
   const handlePlanetClick = useCallback(
-    (slug: string) => {
+    (slug: string, worldPosition: THREE.Vector3) => {
       setFocusedBody(slug);
-      // Find planet position from galaxy data
-      for (const galaxy of galaxies) {
-        const planet = galaxy.bodies.find((p) => p.slug === slug);
-        if (planet) {
-          // Fly to galaxy center (planet orbits around it)
-          flyTo([galaxy.position.x, galaxy.position.y, galaxy.position.z], slug, { offset: 60 });
-          break;
-        }
-      }
-      onPlanetClick?.(slug);
+      flyTo([worldPosition.x, worldPosition.y, worldPosition.z], slug, { offset: 15 });
+      onPlanetClick?.(slug, worldPosition);
     },
-    [galaxies, setFocusedBody, flyTo, onPlanetClick],
+    [setFocusedBody, flyTo, onPlanetClick],
   );
 
   // Click black hole → fly into galaxy, whole spiral appears before you

@@ -2,6 +2,7 @@
 
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
+
 import * as THREE from 'three';
 import { newtonRaphsonKepler, keplerPosition } from '@/utils/mathHelpers';
 import Atmosphere from './Atmosphere';
@@ -9,8 +10,17 @@ import OrbitRing from './OrbitRing';
 import SatelliteSwarm from './SatelliteSwarm';
 import { useCommentStore } from '@/stores/commentStore';
 import { useCosmicStore } from '@/stores/cosmicStore';
+import { QualityLevel } from '@cosmic-engine/shared';
+import { useAccessibility } from '@/hooks/useAccessibility';
 import planetVertSource from '@/shaders/planetSurface.vert.glsl';
 import planetFragSource from '@/shaders/planetSurface.frag.glsl';
+
+const PLANET_SEGMENTS: Record<string, number> = {
+  [QualityLevel.High]: 64,
+  [QualityLevel.Medium]: 32,
+  [QualityLevel.Low]: 16,
+  [QualityLevel.UltraLow]: 16,
+};
 
 export interface PlanetProps {
   slug: string;
@@ -41,7 +51,7 @@ export interface PlanetProps {
   dimmed?: boolean;
   /** Comment count for deciding whether to render satellites */
   commentCount?: number;
-  onClick?: () => void;
+  onClick?: (worldPosition: THREE.Vector3) => void;
   onPointerOver?: () => void;
   onPointerOut?: () => void;
   onSatelliteClick?: (id: string, position: THREE.Vector3) => void;
@@ -55,6 +65,7 @@ function hslToColor(hsl: { h: number; s: number; l: number }): THREE.Color {
 
 export default function Planet({
   slug,
+  title,
   galaxyPosition,
   physics,
   aesthetics,
@@ -66,6 +77,7 @@ export default function Planet({
   onSatelliteClick,
   onSatelliteHover,
 }: PlanetProps) {
+  const { prefersReducedMotion } = useAccessibility();
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const emissiveBoost = useRef(0);
@@ -74,8 +86,10 @@ export default function Planet({
   const comments = useCommentStore((s) => s.comments);
   const pendingComments = useCommentStore((s) => s.pendingComments);
   const viewMode = useCosmicStore((s) => s.viewMode);
+  const qualityLevel = useCosmicStore((s) => s.qualityLevel);
 
-  const planetSize = useMemo(() => 1 + Math.log(physics.mass + 1) * 0.8, [physics.mass]);
+  const planetSize = useMemo(() => 0.6 + Math.log(physics.mass + 1) * 0.35, [physics.mass]);
+  const segments = PLANET_SEGMENTS[qualityLevel] ?? 32;
 
   const baseColor = useMemo(() => hslToColor(aesthetics.baseColorHSL), [aesthetics.baseColorHSL]);
 
@@ -110,8 +124,8 @@ export default function Planet({
     groupRef.current.position.set(x, y, z);
     worldPosRef.current.set(x, y, z);
 
-    // Self-rotation
-    if (meshRef.current) {
+    // Self-rotation (skip when user prefers reduced motion)
+    if (meshRef.current && !prefersReducedMotion) {
       meshRef.current.rotation.y += delta * 0.2;
     }
 
@@ -137,11 +151,11 @@ export default function Planet({
       {/* Planet surface */}
       <mesh
         ref={meshRef}
-        onClick={onClick}
+        onClick={() => onClick?.(worldPosRef.current.clone())}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
       >
-        <sphereGeometry args={[planetSize, 32, 32]} />
+        <sphereGeometry args={[planetSize, segments, segments]} />
         <shaderMaterial
           vertexShader={planetVertSource}
           fragmentShader={planetFragSource}
