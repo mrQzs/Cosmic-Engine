@@ -7,6 +7,11 @@ import { useCosmicStore } from '@/stores/cosmicStore';
 import { useCameraFlyTo } from '@/hooks/useCameraFlyTo';
 import LightingSystem from './LightingSystem';
 import Galaxy from './Galaxy';
+import Comet from './Comet';
+import Wormhole from './Wormhole';
+import Pulsar from './Pulsar';
+import StarGate from './StarGate';
+import MeteorShower from './MeteorShower';
 
 interface UniverseProps {
   onPlanetClick?: (slug: string, worldPosition?: THREE.Vector3) => void;
@@ -15,11 +20,11 @@ interface UniverseProps {
 }
 
 export default function Universe({ onPlanetClick, onGalaxyClick, visiblePlanets }: UniverseProps) {
-  const { galaxies, loading, error } = useUniverseData();
+  const { galaxies, comets, wormholes, pulsar, starGates, meteorShower, loading, error } =
+    useUniverseData();
   const setFocusedBody = useCosmicStore((s) => s.setFocusedBody);
   const { flyTo } = useCameraFlyTo();
 
-  // Build galaxy lights array for the lighting system
   const galaxyLights = useMemo(
     () =>
       galaxies.map((g) => ({
@@ -29,7 +34,6 @@ export default function Universe({ onPlanetClick, onGalaxyClick, visiblePlanets 
     [galaxies],
   );
 
-  // Click planet → fly to planet's current world position
   const handlePlanetClick = useCallback(
     (slug: string, worldPosition: THREE.Vector3) => {
       setFocusedBody(slug);
@@ -39,7 +43,6 @@ export default function Universe({ onPlanetClick, onGalaxyClick, visiblePlanets 
     [setFocusedBody, flyTo, onPlanetClick],
   );
 
-  // Click black hole → fly into galaxy, whole spiral appears before you
   const handleGalaxyClick = useCallback(
     (slug: string) => {
       setFocusedBody(slug);
@@ -55,20 +58,68 @@ export default function Universe({ onPlanetClick, onGalaxyClick, visiblePlanets 
     [galaxies, setFocusedBody, flyTo, onGalaxyClick],
   );
 
+  const handleCometClick = useCallback(
+    (slug: string) => {
+      setFocusedBody(slug);
+    },
+    [setFocusedBody],
+  );
+
+  const handleWormholeClick = useCallback((year: number) => {
+    // TODO: navigate to archive/year
+    console.log('Wormhole clicked, year:', year);
+  }, []);
+
+  const handlePulsarClick = useCallback(() => {
+    setFocusedBody('pulsar');
+    flyTo([pulsar.position.x, pulsar.position.y, pulsar.position.z], 'pulsar', {
+      offset: 30,
+      duration: 2,
+    });
+  }, [pulsar, setFocusedBody, flyTo]);
+
+  const handleStarGateClick = useCallback((id: string) => {
+    // TODO: show preview card
+    console.log('StarGate clicked:', id);
+  }, []);
+
+  if (loading || error) return null;
+
   return (
     <>
       <LightingSystem galaxyLights={galaxyLights} />
-      {!loading &&
-        !error &&
-        galaxies.map((galaxy) => (
-          <Galaxy
-            key={galaxy.id}
-            data={galaxy}
-            onPlanetClick={handlePlanetClick}
-            onGalaxyClick={handleGalaxyClick}
-            visiblePlanets={visiblePlanets}
-          />
-        ))}
+
+      {/* Galaxies (contain black holes, stars, planets, satellites, asteroids) */}
+      {galaxies.map((galaxy) => (
+        <Galaxy
+          key={galaxy.id}
+          data={galaxy}
+          onPlanetClick={handlePlanetClick}
+          onGalaxyClick={handleGalaxyClick}
+          visiblePlanets={visiblePlanets}
+        />
+      ))}
+
+      {/* Comets (pinned articles) */}
+      {comets.map((comet) => (
+        <Comet key={comet.id} data={comet} onClick={handleCometClick} />
+      ))}
+
+      {/* Wormholes (archive entries) */}
+      {wormholes.map((wh) => (
+        <Wormhole key={wh.id} data={wh} onClick={handleWormholeClick} />
+      ))}
+
+      {/* Pulsar (about page) */}
+      <Pulsar data={pulsar} onClick={handlePulsarClick} />
+
+      {/* Star Gates (friend links) */}
+      {starGates.map((sg) => (
+        <StarGate key={sg.id} data={sg} onClick={handleStarGateClick} />
+      ))}
+
+      {/* Meteor Shower (ambient activity effect) */}
+      <MeteorShower config={meteorShower} />
     </>
   );
 }
