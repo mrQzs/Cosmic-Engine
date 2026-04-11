@@ -2,7 +2,14 @@
 
 import { useQuery } from '@apollo/client/react';
 import { UNIVERSE_QUERY } from '@/graphql/queries/universe';
-import { MOCK_GALAXIES } from '@/config/mockUniverseData';
+import {
+  MOCK_GALAXIES,
+  MOCK_COMETS,
+  MOCK_WORMHOLES,
+  MOCK_PULSAR,
+  MOCK_STARGATES,
+  MOCK_METEOR_SHOWER,
+} from '@/config/mockUniverseData';
 
 export interface HSLColor {
   h: number;
@@ -73,6 +80,42 @@ export interface SiteStats {
   runningDays: number;
 }
 
+export interface CometData {
+  id: string;
+  title: string;
+  slug: string;
+  color: string;
+  pathPoints: { x: number; y: number; z: number }[];
+  speed: number;
+}
+
+export interface WormholeData {
+  id: string;
+  year: number;
+  position: { x: number; y: number; z: number };
+  color: string;
+}
+
+export interface PulsarData {
+  position: { x: number; y: number; z: number };
+  color: string;
+  rotationSpeed: number;
+}
+
+export interface StarGateData {
+  id: string;
+  name: string;
+  url: string;
+  position: { x: number; y: number; z: number };
+  color: string;
+}
+
+export interface MeteorShowerConfig {
+  count: number;
+  spawnRadius: number;
+  color: string;
+}
+
 export interface UniverseData {
   universe: {
     galaxies: GalaxyData[];
@@ -89,6 +132,11 @@ export function useUniverseData() {
   if (useMock) {
     return {
       galaxies: MOCK_GALAXIES as GalaxyData[],
+      comets: MOCK_COMETS,
+      wormholes: MOCK_WORMHOLES,
+      pulsar: MOCK_PULSAR,
+      starGates: MOCK_STARGATES,
+      meteorShower: MOCK_METEOR_SHOWER,
       stats: null,
       loading: false,
       error: undefined,
@@ -97,6 +145,15 @@ export function useUniverseData() {
 
   return {
     galaxies: data?.universe.galaxies ?? [],
+    comets: [] as CometData[],
+    wormholes: [] as WormholeData[],
+    pulsar: {
+      position: { x: 0, y: 80, z: -400 },
+      color: '#38bdf8',
+      rotationSpeed: 3.0,
+    } as PulsarData,
+    starGates: [] as StarGateData[],
+    meteorShower: { count: 8, spawnRadius: 600, color: '#38bdf8' } as MeteorShowerConfig,
     stats: data?.universe.stats ?? null,
     loading,
     error,

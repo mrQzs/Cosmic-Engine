@@ -1,4 +1,11 @@
-import type { GalaxyData } from '@/hooks/useUniverseData';
+import type {
+  GalaxyData,
+  CometData,
+  WormholeData,
+  PulsarData,
+  StarGateData,
+  MeteorShowerConfig,
+} from '@/hooks/useUniverseData';
 
 /**
  * Mock universe data for development without backend.
@@ -237,3 +244,74 @@ export const MOCK_GALAXIES: GalaxyData[] = [
     ],
   },
 ];
+
+export const MOCK_COMETS: CometData[] = [
+  {
+    id: 'comet-1',
+    title: 'React 19 新特性详解',
+    slug: 'react-19-features',
+    color: '#61dafb',
+    pathPoints: [
+      { x: -300, y: 40, z: 200 },
+      { x: -100, y: 20, z: 50 },
+      { x: 100, y: -10, z: -100 },
+      { x: 300, y: 30, z: -250 },
+    ],
+    speed: 0.08,
+  },
+  {
+    id: 'comet-2',
+    title: 'Go 并发模式精讲',
+    slug: 'go-concurrency',
+    color: '#00ADD8',
+    pathPoints: [
+      { x: 250, y: -30, z: 300 },
+      { x: 50, y: 50, z: 100 },
+      { x: -150, y: -20, z: -50 },
+      { x: -350, y: 10, z: -200 },
+    ],
+    speed: 0.06,
+  },
+];
+
+export const MOCK_WORMHOLES: WormholeData[] = [
+  { id: 'wh-2026', year: 2026, position: { x: 400, y: 0, z: -300 }, color: '#6b21a8' },
+  { id: 'wh-2025', year: 2025, position: { x: 450, y: 20, z: -250 }, color: '#7c3aed' },
+  { id: 'wh-2024', year: 2024, position: { x: 500, y: -10, z: -200 }, color: '#8b5cf6' },
+];
+
+export const MOCK_PULSAR: PulsarData = {
+  position: { x: 0, y: 80, z: -400 },
+  color: '#38bdf8',
+  rotationSpeed: 3.0,
+};
+
+export const MOCK_STARGATES: StarGateData[] = [
+  {
+    id: 'sg-1',
+    name: 'GitHub',
+    url: 'https://github.com',
+    position: { x: -350, y: 30, z: -100 },
+    color: '#e2e8f0',
+  },
+  {
+    id: 'sg-2',
+    name: 'V2EX',
+    url: 'https://v2ex.com',
+    position: { x: 200, y: -40, z: 350 },
+    color: '#38bdf8',
+  },
+  {
+    id: 'sg-3',
+    name: 'Hacker News',
+    url: 'https://news.ycombinator.com',
+    position: { x: -100, y: 60, z: 400 },
+    color: '#fb923c',
+  },
+];
+
+export const MOCK_METEOR_SHOWER: MeteorShowerConfig = {
+  count: 8,
+  spawnRadius: 600,
+  color: '#38bdf8',
+};
