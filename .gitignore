@@ -52,3 +52,11 @@ yarn-error.log*
 # Misc
 *.log
 .turbo/
+
+# Backend build artifact
+backend/server
+
+# Tooling / local agents
+.claude/
+_bmad/
+_bmad-output/

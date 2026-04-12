@@ -53,6 +53,7 @@ pnpm playwright test                    # E2E tests
 ## Key Technical Conventions
 
 ### R3F / 3D Scene Rules
+
 - **Delta time animations**: All `useFrame` incremental animations MUST multiply by `delta`. Use `clock.elapsedTime` for absolute-time animations (orbits). Never write bare `+= constant` in useFrame.
 - **Zustand selectors**: Always use precise field selectors (`useStore(s => s.field)`), never subscribe to the entire store.
 - **Refs over state in 3D**: Use `useRef` + direct mutation in `useFrame`, never `useState` for per-frame updates.
@@ -61,16 +62,19 @@ pnpm playwright test                    # E2E tests
 - **Shader warmup**: Pre-compile all custom GLSL shaders during loading phase via `renderer.compile()` to avoid first-use frame stalls.
 
 ### Event Throttling Policy
+
 - `onPointerMove` in 3D scene: throttle to ~30fps (raycast is expensive)
 - `window.resize`: debounce 200ms
 - Scroll in article panel: throttle to ~10fps
 - Search input: debounce 300ms
 - WebSocket position sync: throttle 500ms
 
-### Adaptive Quality (4 tiers)
-High → Medium → Low → Ultra-low (2D fallback). Auto-downgrade after 3s below 30fps, auto-upgrade after 10s above 55fps. DPR capped at 1.5 on high-res screens.
+### Adaptive Quality (3 tiers)
+
+High → Medium → Low. Auto-downgrade after 3s below 30fps, auto-upgrade after 10s above 55fps. DPR capped at 1.5 on high-res screens. No 2D fallback — devices that can't run the Low tier are shown an "unsupported device" message. Quality level is persisted to localStorage.
 
 ### Backend Conventions
+
 - Go tests use table-driven style with `t.Parallel()` for pure functions
 - Database integration tests use testcontainers-go (real PostgreSQL + Redis)
 - Structured logging via zerolog
@@ -83,14 +87,14 @@ Dark-only theme. Color palette: `cosmic-void` (#0a0a1a), `cosmic-glow` (#38bdf8)
 
 ## Route Structure
 
-| URL | Scene |
-|-----|-------|
-| `/` | Universe panorama |
-| `/galaxy/[slug]` | Fly to galaxy, focus black hole |
-| `/post/[slug]` | Atmospheric entry → article reading |
-| `/archive/[year]` | Wormhole jump to year sector |
-| `/about` | Fly to pulsar (author bio) |
-| `/admin_199209173332/...` | Admin panel (obfuscated path) |
+| URL                       | Scene                               |
+| ------------------------- | ----------------------------------- |
+| `/`                       | Universe panorama                   |
+| `/galaxy/[slug]`          | Fly to galaxy, focus black hole     |
+| `/post/[slug]`            | Atmospheric entry → article reading |
+| `/archive/[year]`         | Wormhole jump to year sector        |
+| `/about`                  | Fly to pulsar (author bio)          |
+| `/admin_199209173332/...` | Admin panel (obfuscated path)       |
 
 ## Development Phases
 
