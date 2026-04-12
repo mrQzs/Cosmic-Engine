@@ -6,6 +6,18 @@ import * as THREE from 'three';
 import { useCosmicStore } from '@/stores/cosmicStore';
 import { QualityLevel, STAR_PRESETS, type StarPresetParams } from '@cosmic-engine/shared';
 import { hashString } from '@/utils/galaxyPhysics';
+import { newtonRaphsonKepler, keplerPosition } from '@/utils/mathHelpers';
+import { useAccessibility } from '@/hooks/useAccessibility';
+
+// Self-rotation angular velocity (rad/s) per lifecycle phase.
+// Ratios echo real stellar rotation: protostar ~9d, main-seq ~25d, giant ~100d, red giant ~300d+.
+// Compressed into scene-seconds so motion is perceivable.
+const PHASE_SPIN_SPEED: Record<string, number> = {
+  PROTOSTAR: 0.25,
+  MAIN_SEQUENCE: 0.08,
+  GIANT: 0.04,
+  RED_GIANT: 0.02,
+};
 import starVertSource from '@/shaders/starSurface.vert.glsl';
 import starFragSource from '@/shaders/starSurface.frag.glsl';
 import starHaloVertSource from '@/shaders/starHalo.vert.glsl';
@@ -13,9 +25,28 @@ import starHaloFragSource from '@/shaders/starHalo.frag.glsl';
 import prominenceFragSource from '@/shaders/starProminence.frag.glsl';
 import prominenceVertSource from '@/shaders/starProminence.vert.glsl';
 
+export interface StarOrbit {
+  /** Semi-major axis around the galactic black hole (scene units) */
+  a: number;
+  /** Orbital eccentricity, 0 = circle */
+  e: number;
+  /** Inclination in radians (out-of-plane tilt) */
+  inclination: number;
+  /** Initial mean anomaly in radians */
+  phaseOffset: number;
+  /** Mean motion in rad/s (derived from Kepler's 3rd law: n ∝ a^(-3/2)) */
+  meanMotion: number;
+}
+
 export interface StarProps {
   id: string;
-  position: [number, number, number];
+  /** Kepler orbital parameters around the galaxy center */
+  orbit: StarOrbit;
+  /**
+   * Optional live Vector3 sink. Updated each frame with the star's current
+   * galaxy-local position so children (planets) can orbit around it.
+   */
+  positionSink?: THREE.Vector3;
   starPhase: string;
   onClick?: () => void;
 }
@@ -352,13 +383,20 @@ function ProminenceArcs({
 // Main Star component
 // ============================================================
 
-export default function Star({ id, position, starPhase, onClick }: StarProps) {
+export default function Star({ id, orbit, positionSink, starPhase, onClick }: StarProps) {
+  const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const qualityLevel = useCosmicStore((s) => s.qualityLevel);
+  const { prefersReducedMotion } = useAccessibility();
 
   const preset = STAR_PRESETS[starPhase] ?? STAR_PRESETS.MAIN_SEQUENCE;
   const seed = useMemo(() => hashString(id), [id]);
+  const spinSpeed = useMemo(() => {
+    const base = PHASE_SPIN_SPEED[starPhase] ?? PHASE_SPIN_SPEED.MAIN_SEQUENCE;
+    const jitter = 0.8 + (((seed * 9301 + 49297) % 233280) / 233280) * 0.4;
+    return base * jitter;
+  }, [starPhase, seed]);
   const detail = GEO_DETAIL[qualityLevel] ?? 4;
   const coronaScale = CORONA_SCALE[qualityLevel] ?? 0;
   const maxProminences = PROMINENCE_COUNT[qualityLevel] ?? 0;
@@ -390,11 +428,35 @@ export default function Star({ id, position, starPhase, onClick }: StarProps) {
     [preset, seed, lowQuality],
   );
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     uniforms.u_time.value = clock.elapsedTime;
+
+    // Kepler orbit around the galactic black hole.
+    // Freeze motion on reduced-motion preference, but still solve t=0 so the
+    // star renders at its seeded initial position instead of collapsing to origin.
+    const t = prefersReducedMotion ? 0 : clock.elapsedTime;
+    const M = orbit.phaseOffset + t * orbit.meanMotion;
+    const E = newtonRaphsonKepler(M, orbit.e);
+    const [ox, oy] = keplerPosition(orbit.a, orbit.e, E);
+    const cosI = Math.cos(orbit.inclination);
+    const sinI = Math.sin(orbit.inclination);
+    const px = ox;
+    const py = oy * sinI;
+    const pz = oy * cosI;
+
+    if (groupRef.current) {
+      groupRef.current.position.set(px, py, pz);
+    }
+    if (positionSink) {
+      positionSink.set(px, py, pz);
+    }
+
     if (meshRef.current) {
       const dist = camera.position.distanceTo(meshRef.current.getWorldPosition(_tmpVec));
       uniforms.u_pixelSize.value = preset.starScale / Math.max(dist, 1);
+      if (!prefersReducedMotion) {
+        meshRef.current.rotation.y += delta * spinSpeed;
+      }
     }
   });
 
@@ -408,7 +470,7 @@ export default function Star({ id, position, starPhase, onClick }: StarProps) {
   );
 
   return (
-    <group position={position} onClick={onClick}>
+    <group ref={groupRef} onClick={onClick}>
       {/* Star core with procedural surface shader */}
       <mesh ref={meshRef} scale={[preset.starScale, preset.starScale, preset.starScale]}>
         <icosahedronGeometry args={[1, detail]} />

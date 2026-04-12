@@ -349,28 +349,66 @@ export default function Galaxy({
     };
   }, [dustGeometry]);
 
-  // ---- Named star children (subcategories) placed along spiral arms ----
+  // ---- Named star children (subcategories): Kepler orbits around the BH ----
+  // Mean motion baseline: a reference star at a=100 completes an orbit every
+  // ~300s, so n0 ≈ 2π/300 ≈ 0.021 rad/s. Inner stars are faster (Kepler's 3rd
+  // law: n ∝ a^(-3/2)), giving a natural S-star-like speed gradient.
+  const STAR_ORBIT_N0 = 0.021;
+  const STAR_ORBIT_A_REF = 100;
   const starPhaseConfig = useMemo(() => {
     const rand = mulberry32(seed + 4);
     return (data.children ?? []).map((star, idx) => {
-      const arm = idx % ARM_COUNT;
-      const armPhase = (arm / ARM_COUNT) * Math.PI * 2;
-      const r = 80 + idx * 25 + rand() * 10;
-      const b = 1 / Math.tan(PITCH_ANGLE);
-      const a = GALAXY_RADIUS * 0.05;
-      const theta = Math.log(r / a) / b + armPhase;
+      // Semi-major axis: seeded base radius, stays outside BH exclusion zone
+      const a = 80 + idx * 25 + rand() * 10;
+      // Eccentricity range 0.25–0.55 — visually pronounced without touching BH
+      const e = 0.25 + rand() * 0.3;
+      // Inclination up to ±20° for out-of-plane tilt
+      const inclination = (rand() - 0.5) * (Math.PI / 180) * 40;
+      // Random initial phase so stars desynchronize
+      const phaseOffset = rand() * Math.PI * 2;
+      // Kepler's 3rd law: shorter semi-major → faster mean motion
+      const meanMotion = STAR_ORBIT_N0 * Math.pow(STAR_ORBIT_A_REF / a, 1.5);
 
       return {
         ...star,
         starPhase: star.starPhase || 'MAIN_SEQUENCE',
-        position: [r * Math.cos(theta), (rand() - 0.5) * 2, r * Math.sin(theta)] as [
-          number,
-          number,
-          number,
-        ],
+        orbit: { a, e, inclination, phaseOffset, meanMotion },
       };
     });
   }, [data.children, seed]);
+
+  // ---- Shared live map of star positions (star.id → Vector3 in galaxy-local space) ----
+  // Populated by Star's useFrame, read by Planet's useFrame each frame. JSX
+  // renders stars before planets, which makes star useFrames fire first —
+  // planets read the just-updated parent position within the same tick.
+  const starPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map());
+  useMemo(() => {
+    const map = starPositionsRef.current;
+    // Drop entries for stars that no longer exist
+    const ids = new Set(starPhaseConfig.map((s) => s.id));
+    for (const key of Array.from(map.keys())) {
+      if (!ids.has(key)) map.delete(key);
+    }
+    // Seed initial positions at t=0 so the first render doesn't flash at origin
+    for (const star of starPhaseConfig) {
+      let vec = map.get(star.id);
+      if (!vec) {
+        vec = new THREE.Vector3();
+        map.set(star.id, vec);
+      }
+      const M = star.orbit.phaseOffset;
+      const E = M; // e small enough that M is a decent t=0 approximation
+      const r = star.orbit.a * (1 - star.orbit.e * Math.cos(E));
+      const cosI = Math.cos(star.orbit.inclination);
+      const sinI = Math.sin(star.orbit.inclination);
+      const ox = star.orbit.a * (Math.cos(E) - star.orbit.e);
+      const oy = r * Math.sin(M);
+      vec.set(ox, oy * sinI, oy * cosI);
+    }
+  }, [starPhaseConfig]);
+
+  // Origin fallback for planets in a starless galaxy
+  const galaxyOriginRef = useRef(new THREE.Vector3(0, 0, 0));
 
   // ---- Mouse interaction: throttled pointer handler (P3) ----
   const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -583,25 +621,41 @@ export default function Galaxy({
       {/* Dust / emission nebulae with cloud texture + per-particle size (P2 upgrade) */}
       <points ref={dustRef} geometry={dustGeometry} material={dustMaterial} />
 
-      {/* Named stars (subcategory markers) with full star rendering */}
+      {/* Named stars (subcategory markers) on individual Kepler orbits around the BH.
+          Rendered BEFORE planets so their useFrame fires first each tick, letting
+          planets read the updated parent position within the same frame. */}
       {starPhaseConfig.map((star) => (
-        <Star key={star.id} id={star.id} position={star.position} starPhase={star.starPhase} />
-      ))}
-
-      {/* Planets (articles) on Kepler orbits */}
-      {planets.map((planet) => (
-        <Planet
-          key={planet.id}
-          slug={planet.slug}
-          title={planet.title}
-          galaxyPosition={[0, 0, 0]}
-          physics={planet.physicsParams}
-          aesthetics={planet.aestheticsParams}
-          commentCount={planet.commentCount}
-          dimmed={visiblePlanets !== undefined && !visiblePlanets.has(planet.slug)}
-          onClick={(pos) => onPlanetClick?.(planet.slug, pos)}
+        <Star
+          key={star.id}
+          id={star.id}
+          orbit={star.orbit}
+          positionSink={starPositionsRef.current.get(star.id)}
+          starPhase={star.starPhase}
         />
       ))}
+
+      {/* Planets (articles) on Kepler orbits around their parent star.
+          Parent assignment is deterministic by index (planets[i] → stars[i % N])
+          until the backend schema gains a parent_star_id column. */}
+      {planets.map((planet, i) => {
+        const parent =
+          starPhaseConfig.length > 0
+            ? starPositionsRef.current.get(starPhaseConfig[i % starPhaseConfig.length].id)
+            : undefined;
+        return (
+          <Planet
+            key={planet.id}
+            slug={planet.slug}
+            title={planet.title}
+            orbitCenterRef={parent ?? galaxyOriginRef.current}
+            physics={planet.physicsParams}
+            aesthetics={planet.aestheticsParams}
+            commentCount={planet.commentCount}
+            dimmed={visiblePlanets !== undefined && !visiblePlanets.has(planet.slug)}
+            onClick={(pos) => onPlanetClick?.(planet.slug, pos)}
+          />
+        );
+      })}
     </group>
   );
 }

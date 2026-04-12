@@ -6,7 +6,6 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { newtonRaphsonKepler, keplerPosition } from '@/utils/mathHelpers';
 import Atmosphere from './Atmosphere';
-import OrbitRing from './OrbitRing';
 import SatelliteSwarm from './SatelliteSwarm';
 import { useCommentStore } from '@/stores/commentStore';
 import { useCosmicStore } from '@/stores/cosmicStore';
@@ -25,8 +24,12 @@ const PLANET_SEGMENTS: Record<string, number> = {
 export interface PlanetProps {
   slug: string;
   title: string;
-  /** Galaxy center position */
-  galaxyPosition: [number, number, number];
+  /**
+   * Live reference to the planet's orbital center in galaxy-local space.
+   * For articles, this is the parent star's current position (updated each
+   * frame by the Star component). Falls back to galaxy origin when no parent.
+   */
+  orbitCenterRef: THREE.Vector3;
   /** Physics params from backend */
   physics: {
     mass: number;
@@ -66,7 +69,7 @@ function hslToColor(hsl: { h: number; s: number; l: number }): THREE.Color {
 export default function Planet({
   slug,
   title,
-  galaxyPosition,
+  orbitCenterRef,
   physics,
   aesthetics,
   dimmed = false,
@@ -114,12 +117,12 @@ export default function Planet({
     const E = newtonRaphsonKepler(M, physics.eccentricity);
     const [ox, oy] = keplerPosition(physics.orbitRadius, physics.eccentricity, E);
 
-    // Apply inclination rotation
+    // Apply inclination rotation, centered on parent star's current position
     const cosI = Math.cos(physics.orbitInclination);
     const sinI = Math.sin(physics.orbitInclination);
-    const x = galaxyPosition[0] + ox;
-    const y = galaxyPosition[1] + oy * sinI;
-    const z = galaxyPosition[2] + oy * cosI;
+    const x = orbitCenterRef.x + ox;
+    const y = orbitCenterRef.y + oy * sinI;
+    const z = orbitCenterRef.z + oy * cosI;
 
     groupRef.current.position.set(x, y, z);
     worldPosRef.current.set(x, y, z);
@@ -177,14 +180,6 @@ export default function Planet({
           <meshBasicMaterial color={baseColor} transparent opacity={0.3} side={THREE.DoubleSide} />
         </mesh>
       )}
-
-      {/* Orbit path visualization */}
-      <OrbitRing
-        semiMajorAxis={physics.orbitRadius}
-        eccentricity={physics.eccentricity}
-        inclination={physics.orbitInclination}
-        centerOffset={galaxyPosition}
-      />
 
       {/* Comment satellites */}
       {(viewMode === 'planet' || viewMode === 'article' || commentCount > 0) && (
