@@ -8,21 +8,32 @@ import type { StarGateData } from '@/hooks/useUniverseData';
 interface StarGateProps {
   data: StarGateData;
   onClick?: (id: string) => void;
+  /**
+   * Optional position override in the host parent's local space.
+   * When a StarGate is mounted as a child of a Galaxy, the galaxy passes
+   * a local offset here so the gate sits just outside the galactic rim.
+   * Falls back to data.position (absolute universe coords) otherwise.
+   */
+  positionOverride?: [number, number, number];
 }
 
-export default function StarGate({ data, onClick }: StarGateProps) {
+export default function StarGate({ data, onClick, positionOverride }: StarGateProps) {
   const groupRef = useRef<THREE.Group>(null);
   const portalRef = useRef<THREE.Mesh>(null);
   const opacityRef = useRef(0.25);
   const hovered = useRef(false);
 
   const color = useMemo(() => new THREE.Color(data.color), [data.color]);
+  const basePosition = useMemo<[number, number, number]>(
+    () => positionOverride ?? [data.position.x, data.position.y, data.position.z],
+    [positionOverride, data.position.x, data.position.y, data.position.z],
+  );
 
   useFrame(({ clock }, delta) => {
     if (!groupRef.current || !portalRef.current) return;
 
-    // Gentle bobbing (absolute time)
-    groupRef.current.position.y = data.position.y + Math.sin(clock.elapsedTime * 0.5) * 2;
+    // Gentle bobbing (absolute time) around the configured base position
+    groupRef.current.position.y = basePosition[1] + Math.sin(clock.elapsedTime * 0.5) * 2;
 
     // Slow rotation (absolute time)
     groupRef.current.rotation.y = clock.elapsedTime * 0.2;
@@ -38,7 +49,7 @@ export default function StarGate({ data, onClick }: StarGateProps) {
   return (
     <group
       ref={groupRef}
-      position={[data.position.x, data.position.y, data.position.z]}
+      position={basePosition}
       onClick={() => onClick?.(data.id)}
       onPointerEnter={() => {
         hovered.current = true;

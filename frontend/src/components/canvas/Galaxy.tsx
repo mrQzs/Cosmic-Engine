@@ -11,7 +11,8 @@ import { useAccessibility } from '@/hooks/useAccessibility';
 import Planet from './Planet';
 import BlackHole from './BlackHole';
 import Star from './Star';
-import type { GalaxyData } from '@/hooks/useUniverseData';
+import StarGate from './StarGate';
+import type { GalaxyData, StarGateData } from '@/hooks/useUniverseData';
 import {
   mulberry32,
   hashString,
@@ -33,7 +34,13 @@ interface GalaxyProps {
   onPlanetClick?: (slug: string, worldPosition: THREE.Vector3) => void;
   onGalaxyClick?: (slug: string) => void;
   visiblePlanets?: Set<string>;
+  /** Friend-link StarGate assigned to this galaxy (one per galaxy) */
+  starGate?: StarGateData;
+  onStarGateClick?: (id: string) => void;
 }
+
+// StarGate local offset: just outside the visible galactic rim (GALAXY_RADIUS = 200)
+const STARGATE_LOCAL_OFFSET: [number, number, number] = [240, 20, 0];
 
 // ---- Physical parameters ----
 const ARM_COUNT = 2;
@@ -95,6 +102,8 @@ export default function Galaxy({
   onPlanetClick,
   onGalaxyClick,
   visiblePlanets,
+  starGate,
+  onStarGateClick,
 }: GalaxyProps) {
   const groupRef = useRef<THREE.Group>(null);
   const diskRef = useRef<THREE.InstancedMesh>(null);
@@ -633,6 +642,16 @@ export default function Galaxy({
           starPhase={star.starPhase}
         />
       ))}
+
+      {/* Friend-link StarGate assigned to this galaxy, parked just outside the
+          galactic rim in local space so it follows the galaxy's orientation. */}
+      {starGate && (
+        <StarGate
+          data={starGate}
+          positionOverride={STARGATE_LOCAL_OFFSET}
+          onClick={onStarGateClick}
+        />
+      )}
 
       {/* Planets (articles) on Kepler orbits around their parent star.
           Parent assignment is deterministic by index (planets[i] → stars[i % N])

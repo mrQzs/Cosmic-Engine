@@ -900,6 +900,13 @@ export const MOCK_STARGATES: StarGateData[] = [
     position: { x: -500, y: -60, z: -400 },
     color: '#dc2626',
   },
+  {
+    id: 'sg-6',
+    name: 'Reddit',
+    url: 'https://reddit.com',
+    position: { x: 0, y: 80, z: -550 },
+    color: '#f97316',
+  },
 ];
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -10,7 +10,6 @@ import Galaxy from './Galaxy';
 import Comet from './Comet';
 import Wormhole from './Wormhole';
 import Pulsar from './Pulsar';
-import StarGate from './StarGate';
 import MeteorShower from './MeteorShower';
 
 interface UniverseProps {
@@ -89,14 +88,17 @@ export default function Universe({ onPlanetClick, onGalaxyClick, visiblePlanets 
     <>
       <LightingSystem galaxyLights={galaxyLights} />
 
-      {/* Galaxies (contain black holes, stars, planets, satellites, asteroids) */}
-      {galaxies.map((galaxy) => (
+      {/* Galaxies (contain black holes, stars, planets, satellites, asteroids,
+          and one StarGate per galaxy parked outside the rim) */}
+      {galaxies.map((galaxy, i) => (
         <Galaxy
           key={galaxy.id}
           data={galaxy}
           onPlanetClick={handlePlanetClick}
           onGalaxyClick={handleGalaxyClick}
           visiblePlanets={visiblePlanets}
+          starGate={starGates[i % Math.max(starGates.length, 1)]}
+          onStarGateClick={handleStarGateClick}
         />
       ))}
 
@@ -112,11 +114,6 @@ export default function Universe({ onPlanetClick, onGalaxyClick, visiblePlanets 
 
       {/* Pulsar (about page) */}
       <Pulsar data={pulsar} onClick={handlePulsarClick} />
-
-      {/* Star Gates (friend links) */}
-      {starGates.map((sg) => (
-        <StarGate key={sg.id} data={sg} onClick={handleStarGateClick} />
-      ))}
 
       {/* Meteor Shower (ambient activity effect) */}
       <MeteorShower config={meteorShower} />
